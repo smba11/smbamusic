@@ -1,0 +1,47 @@
+:root {
+  --bg: #070707;
+  --bg-elevated: #131313;
+  --panel: rgba(255, 255, 255, 0.045);
+  --panel-strong: rgba(255, 255, 255, 0.085);
+  --line: rgba(255, 255, 255, 0.09);
+  --text: #fbfbfb;
+  --muted: #aaaaaa;
+  --accent: #ff3d5a;
+  --accent-soft: #ff6c83;
+  --accent-glow: rgba(255, 61, 90, 0.24);
+  --danger: #ff9f90;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 61, 90, 0.18), transparent 26%),
+    radial-gradient(circle at 80% 0%, rgba(176, 50, 255, 0.12), transparent 22%),
+    linear-gradient(180deg, #090909 0%, #060606 100%);
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
