@@ -108,7 +108,7 @@ export function MusicShell() {
   const [legacyLikedTrackIds, setLegacyLikedTrackIds] = useState<string[]>([]);
   const [recentTracks, setRecentTracks] = useState<VideoItem[]>([]);
   const [activeSection, setActiveSection] = useState<SectionName>("Home");
-  const [isPlayerVisible, setIsPlayerVisible] = useState(true);
+  const [isPlayerVisible, setIsPlayerVisible] = useState(false);
   const [isLibraryReady, setIsLibraryReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
