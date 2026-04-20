@@ -71,6 +71,7 @@ export function MusicShell() {
   const [likedTrackIds, setLikedTrackIds] = useState<string[]>([]);
   const [recentTracks, setRecentTracks] = useState<VideoItem[]>([]);
   const [activeSection, setActiveSection] = useState<SectionName>("Home");
+  const [isPlayerVisible, setIsPlayerVisible] = useState(true);
   const [isLibraryReady, setIsLibraryReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +106,14 @@ export function MusicShell() {
       playerRef.current.loadVideoById(currentVideo.id);
     }
   }, [currentVideo]);
+
+  useEffect(() => {
+    if (!isPlayerVisible || !window.YT?.Player || playerRef.current) {
+      return;
+    }
+
+    initializePlayer(currentVideo.id);
+  }, [currentVideo.id, isPlayerVisible]);
 
   useEffect(() => {
     void runSearch(query);
@@ -253,12 +262,14 @@ export function MusicShell() {
       const currentIndex = current.findIndex((item) => item.id === currentVideo.id);
       const nextVideo =
         current[(currentIndex + 1) % current.length] ?? currentVideo;
+      setIsPlayerVisible(true);
       setCurrentVideo(nextVideo);
       return current;
     });
   }
 
   function playNow(video: VideoItem) {
+    setIsPlayerVisible(true);
     setCurrentVideo(video);
     setRecentTracks((current) => {
       const next = [video, ...current.filter((item) => item.id !== video.id)];
@@ -298,12 +309,27 @@ export function MusicShell() {
         ? results
         : results;
 
+  function closePlayer() {
+    playerRef.current?.destroy();
+    playerRef.current = null;
+    setIsPlayerVisible(false);
+  }
+
   return (
     <main className={styles.page}>
       <div className={styles.appShell}>
         <aside className={styles.sidebar}>
           <div className={styles.brandBlock}>
-            <div className={styles.brandGlyph}>S</div>
+            <div className={styles.brandGlyph} aria-hidden="true">
+              <span className={styles.brandDiscOuter}>
+                <span className={styles.brandDiscInner} />
+              </span>
+              <span className={styles.brandBars}>
+                <span className={styles.brandBarShort} />
+                <span className={styles.brandBarTall} />
+                <span className={styles.brandBarMid} />
+              </span>
+            </div>
             <div>
               <p className={styles.brandEyebrow}>Now vibing</p>
               <h1 className={styles.brandName}>SmbaMusic</h1>
@@ -598,7 +624,16 @@ export function MusicShell() {
         </section>
       </div>
 
-      <section className={styles.playerDock}>
+      {isPlayerVisible ? (
+        <section className={styles.playerDock}>
+        <button
+          className={styles.closePlayerButton}
+          onClick={closePlayer}
+          aria-label="Close player"
+          type="button"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
         <div className={styles.playerSummary}>
           <div className={styles.playerThumb}>
             {currentVideo.thumbnailUrl ? (
@@ -640,6 +675,7 @@ export function MusicShell() {
           <span>Official YouTube embed</span>
         </div>
       </section>
+      ) : null}
     </main>
   );
 }
