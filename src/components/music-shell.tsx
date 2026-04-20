@@ -32,6 +32,7 @@ declare global {
 type YouTubePlayer = {
   destroy: () => void;
   loadVideoById: (videoId: string) => void;
+  playVideo: () => void;
 };
 
 const starterQueue: VideoItem[] = [
@@ -118,6 +119,7 @@ export function MusicShell() {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const searchRequestIdRef = useRef(0);
   const toastIdRef = useRef(0);
+  const shouldAutoplayRef = useRef(false);
   const featuredTracks = results.length ? results.slice(0, 4) : queue.slice(0, 4);
   const exploreTracks = results.length ? results.slice(0, 6) : [...queue, ...savedTracks].slice(0, 6);
 
@@ -146,6 +148,7 @@ export function MusicShell() {
   useEffect(() => {
     if (playerRef.current) {
       playerRef.current.loadVideoById(currentVideo.id);
+      shouldAutoplayRef.current = false;
     }
   }, [currentVideo]);
 
@@ -289,12 +292,19 @@ export function MusicShell() {
       width: "100%",
       videoId,
       playerVars: {
-        autoplay: 0,
+        autoplay: shouldAutoplayRef.current ? 1 : 0,
         controls: 1,
         rel: 0,
-        playsinline: 1
+        playsinline: 1,
+        origin: window.location.origin
       },
       events: {
+        onReady: () => {
+          if (shouldAutoplayRef.current) {
+            playerRef.current?.playVideo();
+            shouldAutoplayRef.current = false;
+          }
+        },
         onStateChange: (event) => {
           if (event.data === window.YT?.PlayerState?.ENDED) {
             playNext();
@@ -358,6 +368,7 @@ export function MusicShell() {
   }
 
   function playNext() {
+    shouldAutoplayRef.current = true;
     setQueue((current) => {
       const currentIndex = current.findIndex((item) => item.id === currentVideo.id);
       const nextVideo =
@@ -370,6 +381,7 @@ export function MusicShell() {
   }
 
   function playNow(video: VideoItem) {
+    shouldAutoplayRef.current = true;
     setIsPlayerVisible(true);
     setIsPlayerExpanded(false);
     setCurrentVideo(video);
