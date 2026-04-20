@@ -299,7 +299,9 @@
 .libraryHero,
 .libraryPanel,
 .exploreHero,
-.genreSection {
+.genreSection,
+.settingsHero,
+.settingsCard {
   border: 1px solid var(--line);
   border-radius: 32px;
   background:
@@ -361,6 +363,124 @@
     radial-gradient(circle at left center, rgba(255, 84, 112, 0.16), transparent 28%),
     radial-gradient(circle at right top, rgba(88, 205, 255, 0.08), transparent 22%),
     linear-gradient(135deg, rgba(27, 21, 34, 0.96), rgba(12, 12, 12, 0.96));
+}
+
+.settingsHero {
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(114, 228, 255, 0.12), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(255, 122, 69, 0.12), transparent 26%),
+    linear-gradient(135deg, rgba(26, 21, 34, 0.96), rgba(12, 12, 12, 0.96));
+}
+
+.settingsGrid {
+  display: grid;
+  gap: 18px;
+}
+
+.settingsCard {
+  padding: 18px;
+}
+
+.themeOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.themeOption {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.themeOption:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.themeOptionActive {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.themeOption span:last-child {
+  color: var(--muted);
+}
+
+.themeSwatch {
+  display: block;
+  width: 100%;
+  height: 56px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.themeSwatchRoseGlow {
+  background: linear-gradient(135deg, #ff577f, #8b62ff);
+}
+
+.themeSwatchAurora {
+  background: linear-gradient(135deg, #67e8f9, #818cf8);
+}
+
+.themeSwatchSunset {
+  background: linear-gradient(135deg, #ff9f43, #ff5d8f);
+}
+
+.themeSwatchForest {
+  background: linear-gradient(135deg, #84cc16, #14b8a6);
+}
+
+.themeSwatchMidnight {
+  background: linear-gradient(135deg, #8b5cf6, #38bdf8);
+}
+
+.settingsList {
+  display: grid;
+  gap: 12px;
+}
+
+.settingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.settingRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.settingRow > span:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.settingRow > span:first-child span {
+  color: var(--muted);
+}
+
+.settingValue {
+  min-width: 48px;
+  text-align: right;
+  color: var(--text);
+  font-weight: 700;
 }
 
 .exploreOrbit {
@@ -779,7 +899,8 @@
 
   .exploreHero,
   .exploreCollections,
-  .genreGrid {
+  .genreGrid,
+  .themeOptionGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -864,7 +985,8 @@
   .hero,
   .exploreHero,
   .libraryHero,
-  .libraryShelf {
+  .libraryShelf,
+  .settingsHero {
     grid-template-columns: 1fr;
     gap: 18px;
     padding: 20px;
@@ -893,7 +1015,8 @@
   }
 
   .exploreCollections,
-  .genreGrid {
+  .genreGrid,
+  .themeOptionGrid {
     grid-template-columns: 1fr;
   }
 
@@ -1032,6 +1155,16 @@
     left: 12px;
     bottom: 102px;
     max-width: none;
+  }
+
+  .settingRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settingValue {
+    min-width: 0;
+    text-align: left;
   }
 }
 

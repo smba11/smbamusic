@@ -56,10 +56,11 @@ const moodFilters = [
   "Throwbacks"
 ];
 
-const navItems = ["Home", "Explore", "Library"];
+const navItems = ["Home", "Explore", "Library", "Settings"];
 const SAVED_TRACKS_KEY = "smbamusic-saved-tracks";
 const LIKED_TRACKS_KEY = "smbamusic-liked-tracks";
 const RECENT_TRACKS_KEY = "smbamusic-recent-tracks";
+const SETTINGS_KEY = "smbamusic-settings";
 const exploreCollections = [
   {
     title: "Golden Hour",
@@ -92,11 +93,54 @@ const exploreGenres = [
   "Dancehall",
   "Neo Soul"
 ];
+const themeOptions = [
+  {
+    id: "default",
+    label: "Rose Glow",
+    description: "The current pink-lit SmbaMusic mood."
+  },
+  {
+    id: "aurora",
+    label: "Aurora",
+    description: "Cool cyan and periwinkle glow."
+  },
+  {
+    id: "sunset",
+    label: "Sunset",
+    description: "Warm orange and coral energy."
+  },
+  {
+    id: "forest",
+    label: "Forest",
+    description: "Soft green with teal highlights."
+  },
+  {
+    id: "midnight",
+    label: "Midnight",
+    description: "Purple-blue late night shine."
+  }
+] as const;
 
-type SectionName = "Home" | "Explore" | "Library";
+type SectionName = "Home" | "Explore" | "Library" | "Settings";
 type ToastState = {
   id: number;
   message: string;
+};
+type ThemeOption = (typeof themeOptions)[number]["id"];
+type AppSettings = {
+  theme: ThemeOption;
+  autoplayNext: boolean;
+  showToasts: boolean;
+  mobilePlayerExpanded: boolean;
+  reducedMotion: boolean;
+};
+
+const defaultSettings: AppSettings = {
+  theme: "default",
+  autoplayNext: true,
+  showToasts: true,
+  mobilePlayerExpanded: false,
+  reducedMotion: false
 };
 
 export function MusicShell() {
@@ -116,6 +160,7 @@ export function MusicShell() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [pulseKey, setPulseKey] = useState<string | null>(null);
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const searchRequestIdRef = useRef(0);
   const toastIdRef = useRef(0);
@@ -203,6 +248,7 @@ export function MusicShell() {
       const savedTrackValue = window.localStorage.getItem(SAVED_TRACKS_KEY);
       const likedTrackValue = window.localStorage.getItem(LIKED_TRACKS_KEY);
       const recentTrackValue = window.localStorage.getItem(RECENT_TRACKS_KEY);
+      const settingsValue = window.localStorage.getItem(SETTINGS_KEY);
 
       if (savedTrackValue) {
         setSavedTracks(JSON.parse(savedTrackValue) as VideoItem[]);
@@ -225,11 +271,19 @@ export function MusicShell() {
       if (recentTrackValue) {
         setRecentTracks(JSON.parse(recentTrackValue) as VideoItem[]);
       }
+
+      if (settingsValue) {
+        setSettings({
+          ...defaultSettings,
+          ...(JSON.parse(settingsValue) as Partial<AppSettings>)
+        });
+      }
     } catch {
       setSavedTracks([]);
       setLikedTracks([]);
       setLegacyLikedTrackIds([]);
       setRecentTracks([]);
+      setSettings(defaultSettings);
     } finally {
       setIsLibraryReady(true);
     }
@@ -258,6 +312,21 @@ export function MusicShell() {
 
     window.localStorage.setItem(RECENT_TRACKS_KEY, JSON.stringify(recentTracks));
   }, [isLibraryReady, recentTracks]);
+
+  useEffect(() => {
+    if (!isLibraryReady) {
+      return;
+    }
+
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [isLibraryReady, settings]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme;
+    document.documentElement.dataset.motion = settings.reducedMotion
+      ? "reduced"
+      : "default";
+  }, [settings.reducedMotion, settings.theme]);
 
   useEffect(() => {
     if (!toast) {
@@ -306,7 +375,10 @@ export function MusicShell() {
           }
         },
         onStateChange: (event) => {
-          if (event.data === window.YT?.PlayerState?.ENDED) {
+          if (
+            event.data === window.YT?.PlayerState?.ENDED &&
+            settings.autoplayNext
+          ) {
             playNext();
           }
         }
@@ -374,7 +446,9 @@ export function MusicShell() {
       const nextVideo =
         current[(currentIndex + 1) % current.length] ?? currentVideo;
       setIsPlayerVisible(true);
-      setIsPlayerExpanded(false);
+      setIsPlayerExpanded(
+        settings.mobilePlayerExpanded && window.innerWidth <= 820
+      );
       setCurrentVideo(nextVideo);
       return current;
     });
@@ -383,7 +457,9 @@ export function MusicShell() {
   function playNow(video: VideoItem) {
     shouldAutoplayRef.current = true;
     setIsPlayerVisible(true);
-    setIsPlayerExpanded(false);
+    setIsPlayerExpanded(
+      settings.mobilePlayerExpanded && window.innerWidth <= 820
+    );
     setCurrentVideo(video);
     setRecentTracks((current) => {
       const next = [video, ...current.filter((item) => item.id !== video.id)];
@@ -447,12 +523,27 @@ export function MusicShell() {
   }
 
   function triggerFeedback(message: string, nextPulseKey: string) {
+    if (!settings.showToasts) {
+      setPulseKey(nextPulseKey);
+      return;
+    }
+
     toastIdRef.current += 1;
     setToast({
       id: toastIdRef.current,
       message
     });
     setPulseKey(nextPulseKey);
+  }
+
+  function updateSettings<K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K]
+  ) {
+    setSettings((current) => ({
+      ...current,
+      [key]: value
+    }));
   }
 
   return (
@@ -857,6 +948,128 @@ export function MusicShell() {
                       </div>
                     </article>
                   ))}
+                </div>
+              </section>
+            </>
+          ) : activeSection === "Settings" ? (
+            <>
+              <section className={styles.settingsHero}>
+                <div className={styles.heroCopy}>
+                  <p className={styles.sectionEyebrow}>Settings</p>
+                  <h2>Tune SmbaMusic to your vibe.</h2>
+                  <p className={styles.subcopy}>
+                    Switch visual moods, adjust playback behavior, and make the app
+                    feel more like your own listening space.
+                  </p>
+                </div>
+              </section>
+
+              <section className={styles.settingsGrid}>
+                <div className={styles.settingsCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.sectionEyebrow}>Color vibes</p>
+                      <h3>Choose your theme</h3>
+                    </div>
+                  </div>
+                  <div className={styles.themeOptionGrid}>
+                    {themeOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        className={`${styles.themeOption} ${
+                          settings.theme === option.id ? styles.themeOptionActive : ""
+                        }`}
+                        onClick={() => updateSettings("theme", option.id)}
+                      >
+                        <span
+                          className={`${styles.themeSwatch} ${
+                            styles[`themeSwatch${option.label.replace(/\s+/g, "")}`]
+                          }`}
+                        />
+                        <strong>{option.label}</strong>
+                        <span>{option.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={styles.settingsCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.sectionEyebrow}>Playback</p>
+                      <h3>Player behavior</h3>
+                    </div>
+                  </div>
+                  <div className={styles.settingsList}>
+                    <button
+                      className={styles.settingRow}
+                      onClick={() =>
+                        updateSettings("autoplayNext", !settings.autoplayNext)
+                      }
+                    >
+                      <span>
+                        <strong>Autoplay next track</strong>
+                        <span>Move through your queue automatically.</span>
+                      </span>
+                      <span className={styles.settingValue}>
+                        {settings.autoplayNext ? "On" : "Off"}
+                      </span>
+                    </button>
+                    <button
+                      className={styles.settingRow}
+                      onClick={() =>
+                        updateSettings(
+                          "mobilePlayerExpanded",
+                          !settings.mobilePlayerExpanded
+                        )
+                      }
+                    >
+                      <span>
+                        <strong>Open mobile player expanded</strong>
+                        <span>Show the full player sheet right away on phones.</span>
+                      </span>
+                      <span className={styles.settingValue}>
+                        {settings.mobilePlayerExpanded ? "On" : "Off"}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.settingsCard}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.sectionEyebrow}>Experience</p>
+                      <h3>Interface details</h3>
+                    </div>
+                  </div>
+                  <div className={styles.settingsList}>
+                    <button
+                      className={styles.settingRow}
+                      onClick={() => updateSettings("showToasts", !settings.showToasts)}
+                    >
+                      <span>
+                        <strong>Action toasts</strong>
+                        <span>Show little confirmations when you save, like, or queue.</span>
+                      </span>
+                      <span className={styles.settingValue}>
+                        {settings.showToasts ? "On" : "Off"}
+                      </span>
+                    </button>
+                    <button
+                      className={styles.settingRow}
+                      onClick={() =>
+                        updateSettings("reducedMotion", !settings.reducedMotion)
+                      }
+                    >
+                      <span>
+                        <strong>Reduced motion</strong>
+                        <span>Dial back animations and transitions across the app.</span>
+                      </span>
+                      <span className={styles.settingValue}>
+                        {settings.reducedMotion ? "On" : "Off"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </section>
             </>
