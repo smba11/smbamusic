@@ -43,72 +43,44 @@
 }
 
 .brandGlyph {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.12), transparent 38%),
-    linear-gradient(180deg, #171717, #0e0e0e);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.brandDiscOuter,
-.brandDiscInner {
-  display: block;
-  border-radius: 999px;
-}
-
-.brandDiscOuter {
   position: relative;
-  width: 22px;
-  height: 22px;
-  border: 2px solid #f5f5f5;
-}
-
-.brandDiscInner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 6px;
-  height: 6px;
-  background: var(--accent);
-  transform: translate(-50%, -50%);
-}
-
-.brandBars {
-  display: grid;
-  grid-template-columns: repeat(3, 4px);
-  align-items: end;
-  gap: 3px;
-}
-
-.brandBarShort,
-.brandBarMid,
-.brandBarTall {
-  display: block;
-  width: 4px;
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffd7de, var(--accent));
+  background:
+    radial-gradient(circle at 28% 28%, #65c45a 0%, #61bf5d 28%, transparent 29%),
+    radial-gradient(circle at 72% 36%, #ff8c3a 0%, #ff6a54 18%, transparent 30%),
+    radial-gradient(circle at 64% 78%, #5c6bff 0%, #7b4dff 24%, transparent 34%),
+    radial-gradient(circle at 20% 74%, #3ac5bd 0%, #46b5d9 22%, transparent 36%),
+    linear-gradient(135deg, #52c75e 8%, #85c74f 34%, #ff9f3d 52%, #ff6b59 66%, #8458ff 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
 }
 
-.brandBarShort {
-  height: 10px;
+.brandWave {
+  position: absolute;
+  left: 15px;
+  width: 38px;
+  border-top: 8px solid #0b0b0f;
+  border-radius: 999px;
+  transform: rotate(5deg);
 }
 
-.brandBarMid {
-  height: 14px;
+.brandWaveOne {
+  top: 18px;
 }
 
-.brandBarTall {
-  height: 18px;
+.brandWaveTwo {
+  top: 30px;
+  width: 34px;
 }
 
-.brandEyebrow,
+.brandWaveThree {
+  top: 42px;
+  width: 30px;
+}
+
 .sectionEyebrow {
   margin: 0 0 6px;
   font-size: 0.76rem;
@@ -119,7 +91,9 @@
 
 .brandName {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
 }
 
 .nav {

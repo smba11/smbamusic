@@ -57,7 +57,7 @@ const moodFilters = [
 
 const navItems = ["Home", "Explore", "Library"];
 const SAVED_TRACKS_KEY = "smbamusic-saved-tracks";
-const LIKED_TRACKS_KEY = "smbamusic-liked-track-ids";
+const LIKED_TRACKS_KEY = "smbamusic-liked-tracks";
 const RECENT_TRACKS_KEY = "smbamusic-recent-tracks";
 const exploreCollections = [
   {
@@ -104,7 +104,8 @@ export function MusicShell() {
   const [queue, setQueue] = useState<VideoItem[]>(starterQueue);
   const [currentVideo, setCurrentVideo] = useState<VideoItem>(starterQueue[0]);
   const [savedTracks, setSavedTracks] = useState<VideoItem[]>([]);
-  const [likedTrackIds, setLikedTrackIds] = useState<string[]>([]);
+  const [likedTracks, setLikedTracks] = useState<VideoItem[]>([]);
+  const [legacyLikedTrackIds, setLegacyLikedTrackIds] = useState<string[]>([]);
   const [recentTracks, setRecentTracks] = useState<VideoItem[]>([]);
   const [activeSection, setActiveSection] = useState<SectionName>("Home");
   const [isPlayerVisible, setIsPlayerVisible] = useState(true);
@@ -164,7 +165,34 @@ export function MusicShell() {
     () => new Set(savedTracks.map((item) => item.id)),
     [savedTracks]
   );
-  const likedIdSet = useMemo(() => new Set(likedTrackIds), [likedTrackIds]);
+  const knownTracks = useMemo(() => {
+    const merged = [
+      currentVideo,
+      ...results,
+      ...queue,
+      ...savedTracks,
+      ...likedTracks,
+      ...recentTracks
+    ];
+
+    return merged.filter(
+      (track, index, self) => self.findIndex((item) => item.id === track.id) === index
+    );
+  }, [currentVideo, likedTracks, queue, recentTracks, results, savedTracks]);
+  const likedTracksFromLegacyIds = useMemo(
+    () => knownTracks.filter((track) => legacyLikedTrackIds.includes(track.id)),
+    [knownTracks, legacyLikedTrackIds]
+  );
+  const libraryLikedTracks = useMemo(() => {
+    const merged = [...likedTracks, ...likedTracksFromLegacyIds];
+    return merged.filter(
+      (track, index, self) => self.findIndex((item) => item.id === track.id) === index
+    );
+  }, [likedTracks, likedTracksFromLegacyIds]);
+  const likedIdSet = useMemo(
+    () => new Set(libraryLikedTracks.map((item) => item.id)),
+    [libraryLikedTracks]
+  );
 
   useEffect(() => {
     try {
@@ -177,7 +205,17 @@ export function MusicShell() {
       }
 
       if (likedTrackValue) {
-        setLikedTrackIds(JSON.parse(likedTrackValue) as string[]);
+        const parsedLikedTracks = JSON.parse(likedTrackValue) as VideoItem[] | string[];
+
+        if (
+          Array.isArray(parsedLikedTracks) &&
+          parsedLikedTracks.length > 0 &&
+          typeof parsedLikedTracks[0] === "string"
+        ) {
+          setLegacyLikedTrackIds(parsedLikedTracks as string[]);
+        } else {
+          setLikedTracks((parsedLikedTracks as VideoItem[]) ?? []);
+        }
       }
 
       if (recentTrackValue) {
@@ -185,7 +223,8 @@ export function MusicShell() {
       }
     } catch {
       setSavedTracks([]);
-      setLikedTrackIds([]);
+      setLikedTracks([]);
+      setLegacyLikedTrackIds([]);
       setRecentTracks([]);
     } finally {
       setIsLibraryReady(true);
@@ -205,8 +244,8 @@ export function MusicShell() {
       return;
     }
 
-    window.localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedTrackIds));
-  }, [isLibraryReady, likedTrackIds]);
+    window.localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedTracks));
+  }, [isLibraryReady, likedTracks]);
 
   useEffect(() => {
     if (!isLibraryReady) {
@@ -361,8 +400,8 @@ export function MusicShell() {
   }
 
   function toggleLikedTrack(video: VideoItem) {
-    setLikedTrackIds((current) => {
-      const isLiked = current.includes(video.id);
+    setLikedTracks((current) => {
+      const isLiked = current.some((item) => item.id === video.id);
 
       triggerFeedback(
         isLiked ? "Removed from liked tracks" : "Added to liked tracks",
@@ -370,14 +409,14 @@ export function MusicShell() {
       );
 
       if (isLiked) {
-        return current.filter((id) => id !== video.id);
+        return current.filter((item) => item.id !== video.id);
       }
 
-      return [video.id, ...current];
+      return [video, ...current];
     });
+    setLegacyLikedTrackIds((current) => current.filter((id) => id !== video.id));
   }
 
-  const likedSavedTracks = savedTracks.filter((track) => likedIdSet.has(track.id));
   const visibleResults = activeSection === "Explore" ? results : results;
 
   function closePlayer() {
@@ -402,17 +441,11 @@ export function MusicShell() {
         <aside className={styles.sidebar}>
           <div className={styles.brandBlock}>
             <div className={styles.brandGlyph} aria-hidden="true">
-              <span className={styles.brandDiscOuter}>
-                <span className={styles.brandDiscInner} />
-              </span>
-              <span className={styles.brandBars}>
-                <span className={styles.brandBarShort} />
-                <span className={styles.brandBarTall} />
-                <span className={styles.brandBarMid} />
-              </span>
+              <span className={`${styles.brandWave} ${styles.brandWaveOne}`} />
+              <span className={`${styles.brandWave} ${styles.brandWaveTwo}`} />
+              <span className={`${styles.brandWave} ${styles.brandWaveThree}`} />
             </div>
             <div>
-              <p className={styles.brandEyebrow}>Now vibing</p>
               <h1 className={styles.brandName}>SmbaMusic</h1>
             </div>
           </div>
@@ -462,7 +495,7 @@ export function MusicShell() {
                 <span>Saved tracks</span>
               </div>
               <div className={styles.statCard}>
-                <strong>{likedSavedTracks.length}</strong>
+                <strong>{libraryLikedTracks.length}</strong>
                 <span>Liked tracks</span>
               </div>
             </div>
@@ -546,7 +579,7 @@ export function MusicShell() {
                     <span>Saved tracks</span>
                   </div>
                   <div className={styles.libraryHeroCard}>
-                    <strong>{likedSavedTracks.length}</strong>
+                    <strong>{libraryLikedTracks.length}</strong>
                     <span>Liked tracks</span>
                   </div>
                   <div className={styles.libraryHeroCard}>
@@ -623,7 +656,7 @@ export function MusicShell() {
                     </div>
                   </div>
                   <div className={styles.savedList}>
-                    {likedSavedTracks.map((video) => (
+                    {libraryLikedTracks.map((video) => (
                       <article key={`liked-${video.id}`} className={styles.savedItem}>
                         <button
                           className={styles.savedPlayButton}
@@ -636,7 +669,7 @@ export function MusicShell() {
                         </button>
                       </article>
                     ))}
-                    {!likedSavedTracks.length ? (
+                    {!libraryLikedTracks.length ? (
                       <p className={styles.emptyState}>Tracks you like will show up here.</p>
                     ) : null}
                   </div>
