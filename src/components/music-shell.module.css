@@ -1,6 +1,10 @@
 .page {
   min-height: 100vh;
   padding: 20px 20px 170px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 84, 112, 0.12), transparent 26%),
+    radial-gradient(circle at 82% 10%, rgba(140, 110, 255, 0.12), transparent 24%),
+    radial-gradient(circle at 55% 50%, rgba(88, 205, 255, 0.05), transparent 30%);
 }
 
 .appShell {
@@ -28,7 +32,8 @@
   gap: 18px;
   padding: 18px;
   border-radius: 28px;
-  background: linear-gradient(180deg, rgba(22, 22, 22, 0.96), rgba(12, 12, 12, 0.94));
+  background:
+    linear-gradient(180deg, rgba(31, 24, 32, 0.95), rgba(12, 12, 12, 0.94));
 }
 
 .brandBlock {
@@ -148,7 +153,8 @@
 .resultsSection {
   padding: 18px;
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.035);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025));
   backdrop-filter: blur(18px);
 }
 
@@ -222,7 +228,8 @@
   gap: 10px;
   padding: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.055);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055), rgba(140, 110, 255, 0.04));
   border: 1px solid var(--line);
 }
 
@@ -250,7 +257,8 @@
 .primaryButton {
   border: 0;
   color: white;
-  background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+  background: linear-gradient(135deg, var(--accent), #ff7187);
+  box-shadow: 0 10px 30px rgba(255, 61, 90, 0.22);
 }
 
 .secondaryButton,
@@ -266,8 +274,19 @@
 .chip:hover,
 .featureCard:hover,
 .queueItem:hover,
-.controlButton:hover {
+.controlButton:hover,
+.collectionCard:hover,
+.genreCard:hover {
   transform: translateY(-1px);
+}
+
+.actionActive {
+  border-color: rgba(255, 124, 144, 0.5);
+  background: rgba(255, 90, 117, 0.12);
+}
+
+.buttonPulse {
+  animation: buttonPulse 700ms ease;
 }
 
 .userPill {
@@ -289,7 +308,157 @@
   border-radius: 32px;
   background:
     radial-gradient(circle at 20% 20%, rgba(255, 61, 90, 0.24), transparent 30%),
-    linear-gradient(135deg, rgba(31, 31, 31, 0.96), rgba(14, 14, 14, 0.98));
+    radial-gradient(circle at 90% 10%, rgba(140, 110, 255, 0.14), transparent 28%),
+    linear-gradient(135deg, rgba(31, 24, 31, 0.96), rgba(14, 14, 14, 0.98));
+}
+
+.libraryHero,
+.libraryPanel,
+.exploreHero,
+.genreSection {
+  border: 1px solid var(--line);
+  border-radius: 32px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025));
+  backdrop-filter: blur(18px);
+}
+
+.libraryHero {
+  display: grid;
+  grid-template-columns: 1.35fr 0.9fr;
+  gap: 24px;
+  padding: 28px;
+}
+
+.libraryHeroStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.libraryHeroCard {
+  display: grid;
+  align-content: end;
+  gap: 6px;
+  min-height: 150px;
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 61, 90, 0.14), transparent 38%),
+    radial-gradient(circle at bottom right, rgba(140, 110, 255, 0.1), transparent 30%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.libraryHeroCard strong {
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1;
+}
+
+.libraryHeroCard span {
+  color: var(--muted);
+}
+
+.libraryShelf {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.libraryPanel {
+  padding: 18px;
+}
+
+.exploreHero {
+  display: grid;
+  grid-template-columns: 1.35fr 0.85fr;
+  gap: 24px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at left center, rgba(255, 84, 112, 0.16), transparent 28%),
+    radial-gradient(circle at right top, rgba(88, 205, 255, 0.08), transparent 22%),
+    linear-gradient(135deg, rgba(27, 21, 34, 0.96), rgba(12, 12, 12, 0.96));
+}
+
+.exploreOrbit {
+  display: grid;
+  align-content: center;
+  justify-items: end;
+  gap: 12px;
+}
+
+.orbitChip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.orbitChip:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.exploreCollections {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.collectionCard,
+.genreCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+.collectionCard {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  padding: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025));
+}
+
+.collectionCard strong {
+  font-size: 1.15rem;
+}
+
+.collectionCard span:last-child {
+  color: var(--muted);
+}
+
+.collectionGlow {
+  position: absolute;
+  inset: auto auto -25px -20px;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 96, 123, 0.22), transparent 68%);
+  pointer-events: none;
+}
+
+.genreSection {
+  padding: 18px;
+}
+
+.genreGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.genreCard {
+  padding: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.045), rgba(140, 110, 255, 0.05));
 }
 
 .heroCopy h2 {
@@ -390,6 +559,7 @@
   padding: 14px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.035);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
 .featureArt {
@@ -424,6 +594,12 @@
   padding: 12px;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.035);
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.resultItem:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .thumbWrap {
@@ -480,7 +656,8 @@
   align-items: center;
   padding: 14px 18px;
   border-radius: 28px;
-  background: rgba(17, 17, 17, 0.94);
+  background:
+    linear-gradient(90deg, rgba(20, 16, 21, 0.96), rgba(17, 17, 17, 0.94));
   backdrop-filter: blur(18px);
   padding-top: 26px;
 }
@@ -543,6 +720,22 @@
   background: rgba(255, 255, 255, 0.16);
 }
 
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 120px;
+  z-index: 30;
+  max-width: 280px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(27, 22, 32, 0.95), rgba(16, 16, 16, 0.96));
+  color: var(--text);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  animation: toastIn 220ms ease, toastFloat 1.8s ease;
+}
+
 .coverArt {
   object-fit: cover;
 }
@@ -568,6 +761,17 @@
 
   .featureGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exploreHero,
+  .exploreCollections,
+  .genreGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .libraryHero,
+  .libraryShelf {
+    grid-template-columns: 1fr;
   }
 
   .playerDock {
@@ -599,12 +803,22 @@
     grid-template-columns: 1fr;
   }
 
+  .exploreHero,
+  .libraryHeroStats {
+    grid-template-columns: 1fr;
+  }
+
   .thumbWrap {
     width: 100%;
     min-width: 0;
   }
 
   .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .exploreCollections,
+  .genreGrid {
     grid-template-columns: 1fr;
   }
 
@@ -615,5 +829,41 @@
 
   .libraryStats {
     grid-template-columns: 1fr;
+  }
+}
+
+@keyframes buttonPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 96, 123, 0);
+  }
+  35% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 10px rgba(255, 96, 123, 0.1);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 96, 123, 0);
+  }
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
   }
 }
