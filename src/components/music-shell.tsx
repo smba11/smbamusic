@@ -109,6 +109,7 @@ export function MusicShell() {
   const [recentTracks, setRecentTracks] = useState<VideoItem[]>([]);
   const [activeSection, setActiveSection] = useState<SectionName>("Home");
   const [isPlayerVisible, setIsPlayerVisible] = useState(false);
+  const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
   const [isLibraryReady, setIsLibraryReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -362,6 +363,7 @@ export function MusicShell() {
       const nextVideo =
         current[(currentIndex + 1) % current.length] ?? currentVideo;
       setIsPlayerVisible(true);
+      setIsPlayerExpanded(false);
       setCurrentVideo(nextVideo);
       return current;
     });
@@ -369,6 +371,7 @@ export function MusicShell() {
 
   function playNow(video: VideoItem) {
     setIsPlayerVisible(true);
+    setIsPlayerExpanded(false);
     setCurrentVideo(video);
     setRecentTracks((current) => {
       const next = [video, ...current.filter((item) => item.id !== video.id)];
@@ -423,7 +426,12 @@ export function MusicShell() {
     playerRef.current?.destroy();
     playerRef.current = null;
     setIsPlayerVisible(false);
+    setIsPlayerExpanded(false);
     triggerFeedback("Player dismissed", "player-close");
+  }
+
+  function togglePlayerExpanded() {
+    setIsPlayerExpanded((current) => !current);
   }
 
   function triggerFeedback(message: string, nextPulseKey: string) {
@@ -1024,7 +1032,19 @@ export function MusicShell() {
       </div>
 
       {isPlayerVisible ? (
-        <section className={styles.playerDock}>
+        <section
+          className={`${styles.playerDock} ${
+            isPlayerExpanded ? styles.playerDockExpanded : ""
+          }`}
+        >
+        <button
+          className={styles.playerGrabber}
+          onClick={togglePlayerExpanded}
+          aria-label={isPlayerExpanded ? "Collapse player" : "Expand player"}
+          type="button"
+        >
+          <span className={styles.playerGrabberBar} />
+        </button>
         <button
           className={styles.closePlayerButton}
           onClick={closePlayer}
@@ -1033,7 +1053,11 @@ export function MusicShell() {
         >
           <span aria-hidden="true">×</span>
         </button>
-        <div className={styles.playerSummary}>
+        <button
+          className={styles.playerSummary}
+          onClick={togglePlayerExpanded}
+          type="button"
+        >
           <div className={styles.playerThumb}>
             {currentVideo.thumbnailUrl ? (
               <Image
@@ -1049,7 +1073,7 @@ export function MusicShell() {
             <strong>{currentVideo.title}</strong>
             <span>{currentVideo.channelTitle}</span>
           </div>
-        </div>
+        </button>
 
         <div className={styles.playerCenter}>
           <div className={styles.playerControls}>

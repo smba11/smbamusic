@@ -649,9 +649,34 @@
   padding-top: 26px;
 }
 
+.playerDockExpanded {
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.42);
+}
+
+.playerGrabber {
+  display: none;
+}
+
+.playerGrabberBar {
+  display: block;
+  width: 44px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .playerSummary,
 .playerCenter {
   gap: 14px;
+}
+
+.playerSummary {
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
 .playerThumb {
@@ -912,9 +937,26 @@
     left: 12px;
     right: 12px;
     bottom: 12px;
-    gap: 12px;
-    padding: 14px;
-    padding-top: 24px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px 14px 14px;
+    padding-top: 28px;
+    border-radius: 24px;
+  }
+
+  .playerGrabber {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 20px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    transform: translateX(-50%);
+    cursor: pointer;
   }
 
   .playerSummary,
@@ -922,8 +964,67 @@
     gap: 12px;
   }
 
+  .playerSummary {
+    grid-template-columns: 56px minmax(0, 1fr);
+    display: grid;
+    align-items: center;
+  }
+
+  .playerThumb {
+    width: 56px;
+    min-width: 56px;
+  }
+
+  .playerText span {
+    font-size: 0.92rem;
+  }
+
   .playerFrame {
-    min-height: 96px;
+    min-height: 0;
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+    transition: max-height 220ms ease, opacity 180ms ease;
+  }
+
+  .playerControls,
+  .playerInfo {
+    display: none;
+  }
+
+  .playerDockExpanded {
+    padding-bottom: 16px;
+  }
+
+  .playerDockExpanded .playerCenter {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .playerDockExpanded .playerControls {
+    display: flex;
+    justify-content: flex-start;
+    order: 2;
+  }
+
+  .playerDockExpanded .playerFrame {
+    order: 1;
+    max-height: 320px;
+    min-height: 180px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .playerDockExpanded .playerInfo {
+    display: flex;
+    justify-content: flex-start;
+    order: 3;
+  }
+
+  .playerDockExpanded .closePlayerButton {
+    top: 10px;
+    right: 10px;
   }
 
   .toast {
