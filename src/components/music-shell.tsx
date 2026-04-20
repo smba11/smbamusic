@@ -100,7 +100,7 @@ type ToastState = {
 };
 
 export function MusicShell() {
-  const [query, setQuery] = useState("khruangbin");
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<VideoItem[]>([]);
   const [queue, setQueue] = useState<VideoItem[]>(starterQueue);
   const [currentVideo, setCurrentVideo] = useState<VideoItem>(starterQueue[0]);
