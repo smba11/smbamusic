@@ -1339,24 +1339,47 @@ export function MusicShell() {
         </button>
 
         <div className={styles.playerCenter}>
-          <div className={styles.playerControls}>
-            <button
-              className={styles.controlButton}
-              onClick={playNext}
-              type="button"
-            >
-              Next
-            </button>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() => playNow(currentVideo)}
-            >
-              Playing
-            </button>
-          </div>
           <div className={styles.playerFrame}>
-            <div id="youtube-player" className={styles.playerSlot} />
+            <div className={styles.playerAmbient} aria-hidden="true">
+              {currentVideo.thumbnailUrl ? (
+                <Image
+                  src={currentVideo.thumbnailUrl}
+                  alt=""
+                  fill
+                  sizes="420px"
+                  className={styles.coverArt}
+                />
+              ) : null}
+            </div>
+            <div className={styles.playerFrameChrome}>
+              <div className={styles.playerMetaBar}>
+                <div className={styles.playerMetaCopy}>
+                  <span className={styles.playerKicker}>Now Playing</span>
+                  <strong>{currentVideo.title}</strong>
+                  <span>{currentVideo.channelTitle}</span>
+                </div>
+                <div className={styles.playerMetaBadge}>Official YouTube playback</div>
+              </div>
+              <div className={styles.playerControls}>
+                <button
+                  className={styles.controlButton}
+                  onClick={playNext}
+                  type="button"
+                >
+                  Next
+                </button>
+                <button
+                  className={styles.primaryButton}
+                  type="button"
+                  onClick={() => playNow(currentVideo)}
+                >
+                  Playing
+                </button>
+              </div>
+              <div className={styles.playerVideoShell}>
+                <div id="youtube-player" className={styles.playerSlot} />
+              </div>
+            </div>
           </div>
         </div>
 
