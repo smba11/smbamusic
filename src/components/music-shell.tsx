@@ -35,153 +35,155 @@ type YouTubePlayer = {
   playVideo: () => void;
 };
 
-const starterQueue: VideoItem[] = [
-  {
-    id: "jfKfPfyJRdk",
-    title: "lofi hip hop radio - beats to relax/study to",
-    channelTitle: "Lofi Girl",
-    description: "Fallback starter track while you wire in search results.",
-    thumbnailUrl: "https://i.ytimg.com/vi/jfKfPfyJRdk/hqdefault.jpg",
-    publishedAt: "2020-02-22T00:00:00Z"
-  }
-];
+type SectionName = "Listen Now" | "Browse" | "Library" | "Settings";
+type AppearanceMode = "system" | "light" | "dark";
+type AppSettings = {
+  appearance: AppearanceMode;
+  autoplayNext: boolean;
+  reducedMotion: boolean;
+};
+type PersonalizedRow = {
+  key: string;
+  title: string;
+  subtitle: string;
+  query: string;
+  items: VideoItem[];
+};
 
-const moodFilters = [
-  "Energize",
-  "Focus",
-  "Late Night",
-  "Afrobeats",
-  "R&B",
-  "Amapiano",
-  "Throwbacks"
-];
-
-const navItems = ["Home", "Explore", "Library", "Settings"];
+const navItems: SectionName[] = ["Listen Now", "Browse", "Library", "Settings"];
 const SAVED_TRACKS_KEY = "smbamusic-saved-tracks";
 const LIKED_TRACKS_KEY = "smbamusic-liked-tracks";
 const RECENT_TRACKS_KEY = "smbamusic-recent-tracks";
-const SETTINGS_KEY = "smbamusic-settings";
-const exploreCollections = [
-  {
-    title: "Golden Hour",
-    subtitle: "Warm, glowy evening music",
-    query: "sunset chill music"
-  },
-  {
-    title: "Late Night Drive",
-    subtitle: "Smooth, glossy night energy",
-    query: "night drive rnb mix"
-  },
-  {
-    title: "Global Pulse",
-    subtitle: "Amapiano, Afrobeats, and bounce",
-    query: "afrobeats amapiano hits"
-  },
-  {
-    title: "Indie Float",
-    subtitle: "Dreamy bands and soft textures",
-    query: "indie dream pop mix"
-  }
-];
-const exploreGenres = [
-  "Amapiano",
-  "Afrobeats",
-  "Alternative R&B",
-  "Lo-fi",
-  "House",
-  "Indie Pop",
-  "Dancehall",
-  "Neo Soul"
-];
-const themeOptions = [
-  {
-    id: "default",
-    label: "Rose Glow",
-    description: "The current pink-lit SmbaMusic mood."
-  },
-  {
-    id: "aurora",
-    label: "Aurora",
-    description: "Cool cyan and periwinkle glow."
-  },
-  {
-    id: "sunset",
-    label: "Sunset",
-    description: "Warm orange and coral energy."
-  },
-  {
-    id: "forest",
-    label: "Forest",
-    description: "Soft green with teal highlights."
-  },
-  {
-    id: "midnight",
-    label: "Midnight",
-    description: "Purple-blue late night shine."
-  }
-] as const;
+const SETTINGS_KEY = "smbamusic-settings-v2";
 
-type SectionName = "Home" | "Explore" | "Library" | "Settings";
-type ToastState = {
-  id: number;
-  message: string;
-};
-type ThemeOption = (typeof themeOptions)[number]["id"];
-type AppSettings = {
-  theme: ThemeOption;
-  autoplayNext: boolean;
-  showToasts: boolean;
-  mobilePlayerExpanded: boolean;
-  reducedMotion: boolean;
-};
+const browseScenes = [
+  "Alternative R&B",
+  "Amapiano",
+  "Indie Soul",
+  "Late Night Jazz",
+  "Afrobeats",
+  "Dream Pop"
+];
 
 const defaultSettings: AppSettings = {
-  theme: "default",
+  appearance: "system",
   autoplayNext: true,
-  showToasts: true,
-  mobilePlayerExpanded: false,
   reducedMotion: false
 };
 
+function cleanTitle(title: string) {
+  return title
+    .replace(/\(.*?\)|\[.*?\]/g, "")
+    .replace(/\b(official|video|audio|lyrics|visualizer|live)\b/gi, "")
+    .split(/[-|]/)[0]
+    .trim();
+}
+
+function extractArtist(track: VideoItem) {
+  return track.channelTitle.replace(/\s*-\s*topic$/i, "").trim();
+}
+
+function buildTasteRows(tracks: VideoItem[]): Array<Omit<PersonalizedRow, "items">> {
+  const unique = tracks.filter(
+    (track, index, all) => all.findIndex((item) => item.id === track.id) === index
+  );
+
+  if (!unique.length) {
+    return [];
+  }
+
+  const rows: Array<Omit<PersonalizedRow, "items">> = [];
+  const artistSeed = unique[0];
+  const artist = extractArtist(artistSeed);
+  const titleSeed = cleanTitle(unique[0].title);
+  const secondArtist = unique[1] ? extractArtist(unique[1]) : artist;
+
+  rows.push({
+    key: `artist-${artist}`,
+    title: `Because you liked ${artist}`,
+    subtitle: "A tighter lane built from what you already saved.",
+    query: `${artist} similar artists mix`
+  });
+
+  rows.push({
+    key: `title-${titleSeed}`,
+    title: `More like ${titleSeed}`,
+    subtitle: "Close matches instead of random filler.",
+    query: `${titleSeed} songs like this`
+  });
+
+  rows.push({
+    key: `artist-two-${secondArtist}`,
+    title: `${secondArtist} and related`,
+    subtitle: "A softer radio-style pull from your recent taste.",
+    query: `${secondArtist} essentials playlist`
+  });
+
+  return rows.filter(
+    (row, index, all) => all.findIndex((item) => item.query === row.query) === index
+  );
+}
+
+function mergeTracks(...collections: VideoItem[][]) {
+  return collections
+    .flat()
+    .filter(
+      (track, index, all) => all.findIndex((item) => item.id === track.id) === index
+    );
+}
+
 export function MusicShell() {
+  const [activeSection, setActiveSection] = useState<SectionName>("Listen Now");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<VideoItem[]>([]);
-  const [queue, setQueue] = useState<VideoItem[]>(starterQueue);
-  const [currentVideo, setCurrentVideo] = useState<VideoItem>(starterQueue[0]);
   const [savedTracks, setSavedTracks] = useState<VideoItem[]>([]);
   const [likedTracks, setLikedTracks] = useState<VideoItem[]>([]);
-  const [legacyLikedTrackIds, setLegacyLikedTrackIds] = useState<string[]>([]);
   const [recentTracks, setRecentTracks] = useState<VideoItem[]>([]);
-  const [activeSection, setActiveSection] = useState<SectionName>("Home");
+  const [queue, setQueue] = useState<VideoItem[]>([]);
+  const [currentVideo, setCurrentVideo] = useState<VideoItem | null>(null);
   const [isPlayerVisible, setIsPlayerVisible] = useState(false);
-  const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
-  const [isLibraryReady, setIsLibraryReady] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLibraryReady, setIsLibraryReady] = useState(false);
+  const [isYouTubeReady, setIsYouTubeReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState | null>(null);
-  const [pulseKey, setPulseKey] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [personalizedRows, setPersonalizedRows] = useState<PersonalizedRow[]>([]);
+
   const playerRef = useRef<YouTubePlayer | null>(null);
   const searchRequestIdRef = useRef(0);
-  const toastIdRef = useRef(0);
+  const personalizedRequestIdRef = useRef(0);
   const shouldAutoplayRef = useRef(false);
-  const featuredTracks = results.length ? results.slice(0, 4) : queue.slice(0, 4);
-  const exploreTracks = results.length ? results.slice(0, 6) : [...queue, ...savedTracks].slice(0, 6);
+  const queueScrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const savedIds = useMemo(() => new Set(savedTracks.map((track) => track.id)), [savedTracks]);
+  const likedIds = useMemo(() => new Set(likedTracks.map((track) => track.id)), [likedTracks]);
+  const tasteTracks = useMemo(() => {
+    const source = currentVideo ? [currentVideo, ...recentTracks] : recentTracks;
+    return mergeTracks(likedTracks, savedTracks, source).slice(0, 6);
+  }, [currentVideo, likedTracks, recentTracks, savedTracks]);
+  const queuePreview = useMemo(
+    () => queue.filter((track) => track.id !== currentVideo?.id),
+    [currentVideo?.id, queue]
+  );
+  const heroTrack = currentVideo ?? recentTracks[0] ?? savedTracks[0] ?? likedTracks[0] ?? null;
 
   useEffect(() => {
-    const existingScript = document.getElementById("youtube-iframe-api");
+    const script = document.getElementById("youtube-iframe-api");
+    const onReady = () => setIsYouTubeReady(true);
 
-    window.onYouTubeIframeAPIReady = () => initializePlayer(currentVideo.id);
-
-    if (existingScript) {
-      initializePlayer(currentVideo.id);
+    if (window.YT?.Player) {
+      setIsYouTubeReady(true);
       return;
     }
 
-    const script = document.createElement("script");
-    script.id = "youtube-iframe-api";
-    script.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(script);
+    window.onYouTubeIframeAPIReady = onReady;
+
+    if (!script) {
+      const nextScript = document.createElement("script");
+      nextScript.id = "youtube-iframe-api";
+      nextScript.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(nextScript);
+    }
 
     return () => {
       window.onYouTubeIframeAPIReady = undefined;
@@ -191,85 +193,25 @@ export function MusicShell() {
   }, []);
 
   useEffect(() => {
-    if (playerRef.current) {
-      playerRef.current.loadVideoById(currentVideo.id);
-      shouldAutoplayRef.current = false;
-    }
-  }, [currentVideo]);
-
-  useEffect(() => {
-    if (!isPlayerVisible || !window.YT?.Player || playerRef.current) {
-      return;
-    }
-
-    initializePlayer(currentVideo.id);
-  }, [currentVideo.id, isPlayerVisible]);
-
-  useEffect(() => {
-    void runSearch(query);
-  }, []);
-
-  const queueIds = useMemo(() => new Set(queue.map((item) => item.id)), [queue]);
-  const savedTrackIds = useMemo(
-    () => new Set(savedTracks.map((item) => item.id)),
-    [savedTracks]
-  );
-  const knownTracks = useMemo(() => {
-    const merged = [
-      currentVideo,
-      ...results,
-      ...queue,
-      ...savedTracks,
-      ...likedTracks,
-      ...recentTracks
-    ];
-
-    return merged.filter(
-      (track, index, self) => self.findIndex((item) => item.id === track.id) === index
-    );
-  }, [currentVideo, likedTracks, queue, recentTracks, results, savedTracks]);
-  const likedTracksFromLegacyIds = useMemo(
-    () => knownTracks.filter((track) => legacyLikedTrackIds.includes(track.id)),
-    [knownTracks, legacyLikedTrackIds]
-  );
-  const libraryLikedTracks = useMemo(() => {
-    const merged = [...likedTracks, ...likedTracksFromLegacyIds];
-    return merged.filter(
-      (track, index, self) => self.findIndex((item) => item.id === track.id) === index
-    );
-  }, [likedTracks, likedTracksFromLegacyIds]);
-  const likedIdSet = useMemo(
-    () => new Set(libraryLikedTracks.map((item) => item.id)),
-    [libraryLikedTracks]
-  );
-
-  useEffect(() => {
     try {
-      const savedTrackValue = window.localStorage.getItem(SAVED_TRACKS_KEY);
-      const likedTrackValue = window.localStorage.getItem(LIKED_TRACKS_KEY);
-      const recentTrackValue = window.localStorage.getItem(RECENT_TRACKS_KEY);
+      const savedValue = window.localStorage.getItem(SAVED_TRACKS_KEY);
+      const likedValue = window.localStorage.getItem(LIKED_TRACKS_KEY);
+      const recentValue = window.localStorage.getItem(RECENT_TRACKS_KEY);
       const settingsValue = window.localStorage.getItem(SETTINGS_KEY);
 
-      if (savedTrackValue) {
-        setSavedTracks(JSON.parse(savedTrackValue) as VideoItem[]);
+      if (savedValue) {
+        setSavedTracks(JSON.parse(savedValue) as VideoItem[]);
       }
 
-      if (likedTrackValue) {
-        const parsedLikedTracks = JSON.parse(likedTrackValue) as VideoItem[] | string[];
-
-        if (
-          Array.isArray(parsedLikedTracks) &&
-          parsedLikedTracks.length > 0 &&
-          typeof parsedLikedTracks[0] === "string"
-        ) {
-          setLegacyLikedTrackIds(parsedLikedTracks as string[]);
-        } else {
-          setLikedTracks((parsedLikedTracks as VideoItem[]) ?? []);
+      if (likedValue) {
+        const parsed = JSON.parse(likedValue) as Array<VideoItem | string>;
+        if (parsed.length && typeof parsed[0] !== "string") {
+          setLikedTracks(parsed as VideoItem[]);
         }
       }
 
-      if (recentTrackValue) {
-        setRecentTracks(JSON.parse(recentTrackValue) as VideoItem[]);
+      if (recentValue) {
+        setRecentTracks(JSON.parse(recentValue) as VideoItem[]);
       }
 
       if (settingsValue) {
@@ -281,7 +223,6 @@ export function MusicShell() {
     } catch {
       setSavedTracks([]);
       setLikedTracks([]);
-      setLegacyLikedTrackIds([]);
       setRecentTracks([]);
       setSettings(defaultSettings);
     } finally {
@@ -322,73 +263,126 @@ export function MusicShell() {
   }, [isLibraryReady, settings]);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme;
+    if (settings.appearance === "system") {
+      const media = window.matchMedia("(prefers-color-scheme: dark)");
+      const apply = () => {
+        document.documentElement.dataset.appearance = media.matches ? "dark" : "light";
+      };
+
+      apply();
+      media.addEventListener("change", apply);
+      return () => media.removeEventListener("change", apply);
+    }
+
+    document.documentElement.dataset.appearance = settings.appearance;
+  }, [settings.appearance]);
+
+  useEffect(() => {
     document.documentElement.dataset.motion = settings.reducedMotion
       ? "reduced"
       : "default";
-  }, [settings.reducedMotion, settings.theme]);
+  }, [settings.reducedMotion]);
 
   useEffect(() => {
-    if (!toast) {
+    if (!currentVideo || !isPlayerVisible || !isYouTubeReady) {
       return;
     }
 
-    const timeout = window.setTimeout(() => setToast(null), 1800);
-    return () => window.clearTimeout(timeout);
-  }, [toast]);
-
-  useEffect(() => {
-    if (!pulseKey) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setPulseKey(null), 900);
-    return () => window.clearTimeout(timeout);
-  }, [pulseKey]);
-
-  function initializePlayer(videoId: string) {
-    if (!window.YT?.Player) {
-      return;
-    }
-
-    if (playerRef.current) {
-      playerRef.current.loadVideoById(videoId);
-      return;
-    }
-
-    playerRef.current = new window.YT.Player("youtube-player", {
-      height: "100%",
-      width: "100%",
-      videoId,
-      playerVars: {
-        autoplay: shouldAutoplayRef.current ? 1 : 0,
-        controls: 1,
-        rel: 0,
-        playsinline: 1,
-        origin: window.location.origin
-      },
-      events: {
-        onReady: () => {
-          if (shouldAutoplayRef.current) {
-            playerRef.current?.playVideo();
-            shouldAutoplayRef.current = false;
-          }
+    if (!playerRef.current) {
+      playerRef.current = new window.YT!.Player("youtube-player", {
+        height: "100%",
+        width: "100%",
+        videoId: currentVideo.id,
+        playerVars: {
+          autoplay: shouldAutoplayRef.current ? 1 : 0,
+          controls: 1,
+          rel: 0,
+          playsinline: 1,
+          origin: window.location.origin
         },
-        onStateChange: (event) => {
-          if (
-            event.data === window.YT?.PlayerState?.ENDED &&
-            settings.autoplayNext
-          ) {
-            playNext();
+        events: {
+          onReady: () => {
+            if (shouldAutoplayRef.current) {
+              playerRef.current?.playVideo();
+              shouldAutoplayRef.current = false;
+            }
+          },
+          onStateChange: (event) => {
+            if (
+              event.data === window.YT?.PlayerState?.ENDED &&
+              settings.autoplayNext &&
+              queuePreview.length
+            ) {
+              playTrack(queuePreview[0], { autoplay: true, addToQueue: false });
+            }
           }
         }
+      });
+
+      return;
+    }
+
+    playerRef.current.loadVideoById(currentVideo.id);
+    if (shouldAutoplayRef.current) {
+      window.setTimeout(() => {
+        playerRef.current?.playVideo();
+        shouldAutoplayRef.current = false;
+      }, 120);
+    }
+  }, [
+    currentVideo,
+    isPlayerVisible,
+    isYouTubeReady,
+    queuePreview,
+    settings.autoplayNext
+  ]);
+
+  useEffect(() => {
+    if (!tasteTracks.length) {
+      setPersonalizedRows([]);
+      return;
+    }
+
+    const baseRows = buildTasteRows(tasteTracks).slice(0, 3);
+    const requestId = personalizedRequestIdRef.current + 1;
+    personalizedRequestIdRef.current = requestId;
+
+    void (async () => {
+      const loadedRows = await Promise.all(
+        baseRows.map(async (row) => {
+          try {
+            const response = await fetch(`/api/search?q=${encodeURIComponent(row.query)}`);
+            const data = (await response.json()) as { items?: VideoItem[] };
+
+            if (!response.ok) {
+              return null;
+            }
+
+            return {
+              ...row,
+              items: (data.items ?? []).slice(0, 6)
+            } satisfies PersonalizedRow;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      if (personalizedRequestIdRef.current !== requestId) {
+        return;
       }
-    });
-  }
+
+      setPersonalizedRows(
+        loadedRows.filter((row): row is PersonalizedRow => Boolean(row?.items.length))
+      );
+    })();
+  }, [tasteTracks]);
 
   async function runSearch(searchTerm: string) {
     const trimmed = searchTerm.trim();
+
     if (!trimmed) {
+      setResults([]);
       return;
     }
 
@@ -426,63 +420,54 @@ export function MusicShell() {
 
   async function handleSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    setActiveSection("Browse");
     await runSearch(query);
   }
 
-  function addToQueue(video: VideoItem) {
-    if (queueIds.has(video.id)) {
-      triggerFeedback("Already in your queue", `queue-${video.id}`);
-      return;
-    }
+  function playTrack(
+    video: VideoItem,
+    options?: { autoplay?: boolean; addToQueue?: boolean }
+  ) {
+    shouldAutoplayRef.current = options?.autoplay ?? true;
+    setCurrentVideo(video);
+    setIsPlayerVisible(true);
+    setRecentTracks((current) => {
+      const next = [video, ...current.filter((item) => item.id !== video.id)];
+      return next.slice(0, 12);
+    });
 
-    setQueue((current) => [...current, video]);
-    triggerFeedback("Added to queue", `queue-${video.id}`);
+    if (options?.addToQueue !== false) {
+      setQueue((current) => {
+        if (current.some((item) => item.id === video.id)) {
+          return current;
+        }
+
+        return current.length ? [...current, video] : [video];
+      });
+    }
+  }
+
+  function addToQueue(video: VideoItem) {
+    setQueue((current) => {
+      if (current.some((item) => item.id === video.id)) {
+        return current;
+      }
+
+      return [...current, video];
+    });
   }
 
   function playNext() {
-    shouldAutoplayRef.current = true;
-    setQueue((current) => {
-      const currentIndex = current.findIndex((item) => item.id === currentVideo.id);
-      const nextVideo =
-        current[(currentIndex + 1) % current.length] ?? currentVideo;
-      setIsPlayerVisible(true);
-      setIsPlayerExpanded(
-        settings.mobilePlayerExpanded && window.innerWidth <= 820
-      );
-      setCurrentVideo(nextVideo);
-      return current;
-    });
-  }
-
-  function playNow(video: VideoItem) {
-    shouldAutoplayRef.current = true;
-    setIsPlayerVisible(true);
-    setIsPlayerExpanded(
-      settings.mobilePlayerExpanded && window.innerWidth <= 820
-    );
-    setCurrentVideo(video);
-    setRecentTracks((current) => {
-      const next = [video, ...current.filter((item) => item.id !== video.id)];
-      return next.slice(0, 8);
-    });
-
-    if (!queueIds.has(video.id)) {
-      setQueue((current) => [video, ...current]);
+    if (!queuePreview.length) {
+      return;
     }
 
-    triggerFeedback(`Now playing ${video.title}`, `play-${video.id}`);
+    playTrack(queuePreview[0], { autoplay: true, addToQueue: false });
   }
 
-  function toggleSavedTrack(video: VideoItem) {
+  function toggleSaved(video: VideoItem) {
     setSavedTracks((current) => {
-      const isSaved = current.some((item) => item.id === video.id);
-
-      triggerFeedback(
-        isSaved ? "Removed from library" : "Saved to your library",
-        `save-${video.id}`
-      );
-
-      if (isSaved) {
+      if (current.some((item) => item.id === video.id)) {
         return current.filter((item) => item.id !== video.id);
       }
 
@@ -490,74 +475,51 @@ export function MusicShell() {
     });
   }
 
-  function toggleLikedTrack(video: VideoItem) {
+  function toggleLiked(video: VideoItem) {
     setLikedTracks((current) => {
-      const isLiked = current.some((item) => item.id === video.id);
-
-      triggerFeedback(
-        isLiked ? "Removed from liked tracks" : "Added to liked tracks",
-        `like-${video.id}`
-      );
-
-      if (isLiked) {
+      if (current.some((item) => item.id === video.id)) {
         return current.filter((item) => item.id !== video.id);
       }
 
       return [video, ...current];
     });
-    setLegacyLikedTrackIds((current) => current.filter((id) => id !== video.id));
   }
-
-  const visibleResults = activeSection === "Explore" ? results : results;
 
   function closePlayer() {
     playerRef.current?.destroy();
     playerRef.current = null;
     setIsPlayerVisible(false);
-    setIsPlayerExpanded(false);
-    triggerFeedback("Player dismissed", "player-close");
   }
 
-  function togglePlayerExpanded() {
-    setIsPlayerExpanded((current) => !current);
-  }
-
-  function triggerFeedback(message: string, nextPulseKey: string) {
-    if (!settings.showToasts) {
-      setPulseKey(nextPulseKey);
-      return;
-    }
-
-    toastIdRef.current += 1;
-    setToast({
-      id: toastIdRef.current,
-      message
-    });
-    setPulseKey(nextPulseKey);
-  }
-
-  function updateSettings<K extends keyof AppSettings>(
-    key: K,
-    value: AppSettings[K]
-  ) {
+  function updateSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
     setSettings((current) => ({
       ...current,
       [key]: value
     }));
   }
 
+  function scrollQueue(direction: "left" | "right") {
+    queueScrollerRef.current?.scrollBy({
+      left: direction === "left" ? -240 : 240,
+      behavior: "smooth"
+    });
+  }
+
+  const browseCards = query.trim().length ? results : recentTracks;
+
   return (
     <main className={styles.page}>
-      <div className={styles.appShell}>
+      <div className={styles.shell}>
         <aside className={styles.sidebar}>
           <div className={styles.brandBlock}>
-            <div className={styles.brandGlyph} aria-hidden="true">
-              <span className={`${styles.brandWave} ${styles.brandWaveOne}`} />
-              <span className={`${styles.brandWave} ${styles.brandWaveTwo}`} />
-              <span className={`${styles.brandWave} ${styles.brandWaveThree}`} />
+            <div className={styles.brandMark} aria-hidden="true">
+              <span className={styles.brandBar} />
+              <span className={styles.brandBar} />
+              <span className={styles.brandBar} />
             </div>
             <div>
-              <h1 className={styles.brandName}>SmbaMusic</h1>
+              <span className={styles.sidebarLabel}>SmbaMusic</span>
+              <h1 className={styles.brandName}>Music, organized around your taste.</h1>
             </div>
           </div>
 
@@ -569,810 +531,602 @@ export function MusicShell() {
                 className={`${styles.navItem} ${
                   activeSection === item ? styles.navItemActive : ""
                 }`}
-                onClick={() => setActiveSection(item as SectionName)}
+                onClick={() => setActiveSection(item)}
               >
                 {item}
               </button>
             ))}
           </nav>
 
-          <section className={styles.libraryCard}>
-            <p className={styles.sectionEyebrow}>Your queue</p>
-            <h2>Ready to play</h2>
-            <div className={styles.queueList}>
-              {queue.slice(0, 5).map((video, index) => (
-                <button
-                  key={`${video.id}-${index}`}
-                  type="button"
-                  className={styles.queueItem}
-                  onClick={() => playNow(video)}
-                >
-                  <span className={styles.queueIndex}>
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className={styles.queueText}>
-                    <strong>{video.title}</strong>
-                    <span>{video.channelTitle}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className={styles.libraryCard}>
-            <p className={styles.sectionEyebrow}>Your library</p>
-            <h2>Saved for later</h2>
-            <div className={styles.libraryStats}>
-              <div className={styles.statCard}>
+          <section className={styles.sidebarPanel}>
+            <span className={styles.sidebarLabel}>Library snapshot</span>
+            <div className={styles.statList}>
+              <div className={styles.statRow}>
+                <span>Saved</span>
                 <strong>{savedTracks.length}</strong>
-                <span>Saved tracks</span>
               </div>
-              <div className={styles.statCard}>
-                <strong>{libraryLikedTracks.length}</strong>
-                <span>Liked tracks</span>
+              <div className={styles.statRow}>
+                <span>Liked</span>
+                <strong>{likedTracks.length}</strong>
               </div>
-            </div>
-            <div className={styles.savedList}>
-              {savedTracks.slice(0, 4).map((video) => (
-                <article key={video.id} className={styles.savedItem}>
-                  <button
-                    className={styles.savedPlayButton}
-                    type="button"
-                    onClick={() => playNow(video)}
-                  >
-                    <span className={styles.queueText}>
-                      <strong>{video.title}</strong>
-                      <span>{video.channelTitle}</span>
-                    </span>
-                  </button>
-                </article>
-              ))}
-              {!savedTracks.length ? (
-                <p className={styles.emptyState}>Save a few tracks to build your library.</p>
-              ) : null}
+              <div className={styles.statRow}>
+                <span>Recent</span>
+                <strong>{recentTracks.length}</strong>
+              </div>
             </div>
           </section>
 
-          <section className={styles.libraryCard}>
-            <p className={styles.sectionEyebrow}>Recently played</p>
-            <h2>Pick back up fast</h2>
-            <div className={styles.savedList}>
-              {recentTracks.slice(0, 4).map((video) => (
-                <article key={`${video.id}-recent`} className={styles.savedItem}>
+          <section className={styles.sidebarPanel}>
+            <span className={styles.sidebarLabel}>Current queue</span>
+            {queuePreview.length ? (
+              <div className={styles.compactList}>
+                {queuePreview.slice(0, 4).map((track) => (
                   <button
-                    className={styles.savedPlayButton}
+                    key={`queue-${track.id}`}
                     type="button"
-                    onClick={() => playNow(video)}
+                    className={styles.compactTrack}
+                    onClick={() => playTrack(track, { autoplay: true, addToQueue: false })}
                   >
-                    <span className={styles.queueText}>
-                      <strong>{video.title}</strong>
-                      <span>{video.channelTitle}</span>
-                    </span>
+                    <strong>{track.title}</strong>
+                    <span>{track.channelTitle}</span>
                   </button>
-                </article>
-              ))}
-              {!recentTracks.length ? (
-                <p className={styles.emptyState}>Tracks you play will show up here.</p>
-              ) : null}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyText}>
+                The next songs will appear here once you start playing music.
+              </p>
+            )}
           </section>
         </aside>
 
-        <section className={styles.mainColumn}>
+        <section className={styles.main}>
           <header className={styles.topbar}>
+            <div>
+              <p className={styles.topLabel}>For you</p>
+              <h2 className={styles.topTitle}>
+                {activeSection === "Listen Now"
+                  ? "Listen Now"
+                  : activeSection === "Browse"
+                    ? "Browse"
+                    : activeSection}
+              </h2>
+            </div>
+
             <form className={styles.searchForm} onSubmit={handleSearch}>
               <input
-                id="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search songs, artists, videos"
+                placeholder="Search artists, songs, or moods"
                 className={styles.searchInput}
               />
-              <button
-                className={styles.searchButton}
-                disabled={isSearching}
-                type="submit"
-              >
-                {isSearching ? "Searching..." : "Search"}
+              <button type="submit" className={styles.searchButton} disabled={isSearching}>
+                {isSearching ? "Searching" : "Search"}
               </button>
             </form>
-
-            <div className={styles.userPill}>Smba</div>
           </header>
 
-          {activeSection === "Library" ? (
-            <>
-              <section className={styles.libraryHero}>
-                <div className={styles.heroCopy}>
-                  <p className={styles.sectionEyebrow}>Your collection</p>
-                  <h2>Everything you saved inside SmbaMusic.</h2>
-                  <p className={styles.subcopy}>
-                    Jump back into saved tracks, revisit liked picks, and keep your
-                    recent listens close without losing the music-first feel.
-                  </p>
-                </div>
-
-                <div className={styles.libraryHeroStats}>
-                  <div className={styles.libraryHeroCard}>
-                    <strong>{savedTracks.length}</strong>
-                    <span>Saved tracks</span>
-                  </div>
-                  <div className={styles.libraryHeroCard}>
-                    <strong>{libraryLikedTracks.length}</strong>
-                    <span>Liked tracks</span>
-                  </div>
-                  <div className={styles.libraryHeroCard}>
-                    <strong>{recentTracks.length}</strong>
-                    <span>Recent plays</span>
-                  </div>
-                </div>
-              </section>
-
-              <section className={styles.resultsSection}>
-                <div className={styles.sectionHeader}>
-                  <div>
-                    <p className={styles.sectionEyebrow}>Saved tracks</p>
-                    <h3>Your main library</h3>
-                  </div>
-                </div>
-
-                <div className={styles.results}>
-                  {savedTracks.map((video) => (
-                    <article key={`library-${video.id}`} className={styles.resultItem}>
-                      <div className={styles.resultMedia}>
-                        <div className={styles.thumbWrap}>
-                          <Image
-                            src={video.thumbnailUrl}
-                            alt={video.title}
-                            fill
-                            sizes="160px"
-                            className={styles.coverArt}
-                          />
-                        </div>
-                        <div className={styles.resultCopy}>
-                          <strong>{video.title}</strong>
-                          <span>{video.channelTitle}</span>
-                        </div>
-                      </div>
-
-                      <div className={styles.resultActions}>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => playNow(video)}
-                        >
-                          Play
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => addToQueue(video)}
-                        >
-                          Queue
-                        </button>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => toggleSavedTrack(video)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-
-                  {!savedTracks.length ? (
-                    <p className={styles.emptyState}>
-                      Save tracks from search results to start building your library.
-                    </p>
-                  ) : null}
-                </div>
-              </section>
-
-              <section className={styles.libraryShelf}>
-                <div className={styles.libraryPanel}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <p className={styles.sectionEyebrow}>Liked</p>
-                      <h3>Favorites</h3>
-                    </div>
-                  </div>
-                  <div className={styles.savedList}>
-                    {libraryLikedTracks.map((video) => (
-                      <article key={`liked-${video.id}`} className={styles.savedItem}>
-                        <button
-                          className={styles.savedPlayButton}
-                          type="button"
-                          onClick={() => playNow(video)}
-                        >
-                          <span className={styles.queueText}>
-                            <strong>{video.title}</strong>
-                            <span>{video.channelTitle}</span>
-                          </span>
-                        </button>
-                      </article>
-                    ))}
-                    {!libraryLikedTracks.length ? (
-                      <p className={styles.emptyState}>Tracks you like will show up here.</p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className={styles.libraryPanel}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <p className={styles.sectionEyebrow}>Recent</p>
-                      <h3>Played lately</h3>
-                    </div>
-                  </div>
-                  <div className={styles.savedList}>
-                    {recentTracks.map((video) => (
-                      <article key={`recent-page-${video.id}`} className={styles.savedItem}>
-                        <button
-                          className={styles.savedPlayButton}
-                          type="button"
-                          onClick={() => playNow(video)}
-                        >
-                          <span className={styles.queueText}>
-                            <strong>{video.title}</strong>
-                            <span>{video.channelTitle}</span>
-                          </span>
-                        </button>
-                      </article>
-                    ))}
-                    {!recentTracks.length ? (
-                      <p className={styles.emptyState}>Your recent plays will show up here.</p>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
-            </>
-          ) : activeSection === "Explore" ? (
-            <>
-              <section className={styles.exploreHero}>
-                <div className={styles.heroCopy}>
-                  <p className={styles.sectionEyebrow}>Explore</p>
-                  <h2>Find a lane fast, then let SmbaMusic do the mood-setting.</h2>
-                  <p className={styles.subcopy}>
-                    Browse curated vibes, tap a genre, or jump into something new
-                    without losing the glow of the player.
-                  </p>
-                </div>
-
-                <div className={styles.exploreOrbit}>
-                  {exploreCollections.slice(0, 3).map((collection) => (
-                    <button
-                      key={collection.title}
-                      type="button"
-                      className={styles.orbitChip}
-                      onClick={() => {
-                        setQuery(collection.query);
-                        void runSearch(collection.query);
-                      }}
-                    >
-                      {collection.title}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className={styles.exploreCollections}>
-                {exploreCollections.map((collection) => (
-                  <button
-                    key={collection.title}
-                    type="button"
-                    className={styles.collectionCard}
-                    onClick={() => {
-                      setQuery(collection.query);
-                      void runSearch(collection.query);
-                    }}
-                  >
-                    <span className={styles.collectionGlow} />
-                    <span className={styles.sectionEyebrow}>Collection</span>
-                    <strong>{collection.title}</strong>
-                    <span>{collection.subtitle}</span>
-                  </button>
-                ))}
-              </section>
-
-              <section className={styles.genreSection}>
-                <div className={styles.sectionHeader}>
-                  <div>
-                    <p className={styles.sectionEyebrow}>Browse genres</p>
-                    <h3>Start with a mood</h3>
-                  </div>
-                </div>
-                <div className={styles.genreGrid}>
-                  {exploreGenres.map((genre) => (
-                    <button
-                      key={genre}
-                      type="button"
-                      className={styles.genreCard}
-                      onClick={() => {
-                        setQuery(genre);
-                        void runSearch(genre);
-                      }}
-                    >
-                      {genre}
-                    </button>
-                  ))}
-                </div>
-              </section>
-
-              <section className={styles.resultsSection}>
-                <div className={styles.sectionHeader}>
-                  <div>
-                    <p className={styles.sectionEyebrow}>Fresh picks</p>
-                    <h3>Ready to jump into</h3>
-                  </div>
-                </div>
-
-                {error ? <p className={styles.error}>{error}</p> : null}
-
-                <div className={styles.results}>
-                  {exploreTracks.map((video) => (
-                    <article key={`explore-${video.id}`} className={styles.resultItem}>
-                      <div className={styles.resultMedia}>
-                        <div className={styles.thumbWrap}>
-                          <Image
-                            src={video.thumbnailUrl}
-                            alt={video.title}
-                            fill
-                            sizes="160px"
-                            className={styles.coverArt}
-                          />
-                        </div>
-                        <div className={styles.resultCopy}>
-                          <strong>{video.title}</strong>
-                          <span>{video.channelTitle}</span>
-                        </div>
-                      </div>
-
-                      <div className={styles.resultActions}>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            pulseKey === `play-${video.id}` ? styles.buttonPulse : ""
-                          }`}
-                          type="button"
-                          onClick={() => playNow(video)}
-                        >
-                          Play
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            pulseKey === `queue-${video.id}` ? styles.buttonPulse : ""
-                          }`}
-                          type="button"
-                          onClick={() => addToQueue(video)}
-                        >
-                          Queue
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            savedTrackIds.has(video.id) ? styles.actionActive : ""
-                          } ${pulseKey === `save-${video.id}` ? styles.buttonPulse : ""}`}
-                          type="button"
-                          onClick={() => toggleSavedTrack(video)}
-                        >
-                          {savedTrackIds.has(video.id) ? "Saved" : "Save"}
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            likedIdSet.has(video.id) ? styles.actionActive : ""
-                          } ${pulseKey === `like-${video.id}` ? styles.buttonPulse : ""}`}
-                          type="button"
-                          onClick={() => toggleLikedTrack(video)}
-                        >
-                          {likedIdSet.has(video.id) ? "Liked" : "Like"}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </>
-          ) : activeSection === "Settings" ? (
-            <>
-              <section className={styles.settingsHero}>
-                <div className={styles.heroCopy}>
-                  <p className={styles.sectionEyebrow}>Settings</p>
-                  <h2>Tune SmbaMusic to your vibe.</h2>
-                  <p className={styles.subcopy}>
-                    Switch visual moods, adjust playback behavior, and make the app
-                    feel more like your own listening space.
-                  </p>
-                </div>
-              </section>
-
-              <section className={styles.settingsGrid}>
-                <div className={styles.settingsCard}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <p className={styles.sectionEyebrow}>Color vibes</p>
-                      <h3>Choose your theme</h3>
-                    </div>
-                  </div>
-                  <div className={styles.themeOptionGrid}>
-                    {themeOptions.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={`${styles.themeOption} ${
-                          settings.theme === option.id ? styles.themeOptionActive : ""
-                        }`}
-                        onClick={() => updateSettings("theme", option.id)}
-                      >
-                        <span
-                          className={`${styles.themeSwatch} ${
-                            styles[`themeSwatch${option.label.replace(/\s+/g, "")}`]
-                          }`}
-                        />
-                        <strong>{option.label}</strong>
-                        <span>{option.description}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className={styles.settingsCard}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <p className={styles.sectionEyebrow}>Playback</p>
-                      <h3>Player behavior</h3>
-                    </div>
-                  </div>
-                  <div className={styles.settingsList}>
-                    <button
-                      className={styles.settingRow}
-                      type="button"
-                      onClick={() =>
-                        updateSettings("autoplayNext", !settings.autoplayNext)
-                      }
-                    >
-                      <span>
-                        <strong>Autoplay next track</strong>
-                        <span>Move through your queue automatically.</span>
-                      </span>
-                      <span className={styles.settingValue}>
-                        {settings.autoplayNext ? "On" : "Off"}
-                      </span>
-                    </button>
-                    <button
-                      className={styles.settingRow}
-                      type="button"
-                      onClick={() =>
-                        updateSettings(
-                          "mobilePlayerExpanded",
-                          !settings.mobilePlayerExpanded
-                        )
-                      }
-                    >
-                      <span>
-                        <strong>Open mobile player expanded</strong>
-                        <span>Show the full player sheet right away on phones.</span>
-                      </span>
-                      <span className={styles.settingValue}>
-                        {settings.mobilePlayerExpanded ? "On" : "Off"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className={styles.settingsCard}>
-                  <div className={styles.sectionHeader}>
-                    <div>
-                      <p className={styles.sectionEyebrow}>Experience</p>
-                      <h3>Interface details</h3>
-                    </div>
-                  </div>
-                  <div className={styles.settingsList}>
-                    <button
-                      className={styles.settingRow}
-                      type="button"
-                      onClick={() => updateSettings("showToasts", !settings.showToasts)}
-                    >
-                      <span>
-                        <strong>Action toasts</strong>
-                        <span>Show little confirmations when you save, like, or queue.</span>
-                      </span>
-                      <span className={styles.settingValue}>
-                        {settings.showToasts ? "On" : "Off"}
-                      </span>
-                    </button>
-                    <button
-                      className={styles.settingRow}
-                      type="button"
-                      onClick={() =>
-                        updateSettings("reducedMotion", !settings.reducedMotion)
-                      }
-                    >
-                      <span>
-                        <strong>Reduced motion</strong>
-                        <span>Dial back animations and transitions across the app.</span>
-                      </span>
-                      <span className={styles.settingValue}>
-                        {settings.reducedMotion ? "On" : "Off"}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </section>
-            </>
-          ) : (
+          {activeSection === "Listen Now" ? (
             <>
               <section className={styles.hero}>
                 <div className={styles.heroCopy}>
-                  <p className={styles.sectionEyebrow}>Made for your session</p>
-                  <h2>SmbaMusic brings the YouTube Music feel to your own player.</h2>
-                  <p className={styles.subcopy}>
-                    Search YouTube, queue tracks, and keep playback inside the official
-                    embedded player without stream ripping or downloads.
+                  <h3>
+                    {heroTrack
+                      ? `Built around ${extractArtist(heroTrack)}`
+                      : "A cleaner player that learns from what you keep"}
+                  </h3>
+                  <p>
+                    {heroTrack
+                      ? "Your home screen now leans on what you actually play, like, and save instead of repeating generic filler."
+                      : "Search artists you love, save a few tracks, and SmbaMusic will start shaping your home around your taste."}
                   </p>
                   <div className={styles.heroActions}>
                     <button
-                      className={styles.primaryButton}
                       type="button"
-                      onClick={() => playNow(currentVideo)}
+                      className={styles.primaryButton}
+                      onClick={() => {
+                        if (heroTrack) {
+                          playTrack(heroTrack);
+                          return;
+                        }
+
+                        setActiveSection("Browse");
+                      }}
                     >
-                      Play now
+                      {heroTrack ? "Play current lane" : "Start with search"}
                     </button>
                     <button
-                      className={styles.secondaryButton}
-                      onClick={playNext}
                       type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setActiveSection("Library")}
                     >
-                      Skip ahead
+                      Open library
                     </button>
                   </div>
                 </div>
 
-                <div className={styles.heroSpotlight}>
-                  <div className={styles.spotlightArt}>
-                    {currentVideo.thumbnailUrl ? (
-                      <Image
-                        src={currentVideo.thumbnailUrl}
-                        alt={currentVideo.title}
-                        fill
-                        sizes="240px"
-                        className={styles.coverArt}
-                      />
-                    ) : null}
-                  </div>
-                  <div className={styles.spotlightMeta}>
-                    <strong>{currentVideo.title}</strong>
-                    <span>{currentVideo.channelTitle}</span>
-                  </div>
+                <div className={styles.heroCard}>
+                  {heroTrack ? (
+                    <>
+                      <div className={styles.heroArt}>
+                        <Image
+                          src={heroTrack.thumbnailUrl}
+                          alt={heroTrack.title}
+                          fill
+                          sizes="420px"
+                          className={styles.coverArt}
+                        />
+                      </div>
+                      <div className={styles.heroMeta}>
+                        <strong>{heroTrack.title}</strong>
+                        <span>{heroTrack.channelTitle}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles.onboardingCard}>
+                      <strong>No random homepage rails.</strong>
+                      <span>
+                        Your suggestions will get better as soon as you search, save,
+                        and like a few artists.
+                      </span>
+                    </div>
+                  )}
                 </div>
               </section>
 
-              <div className={styles.chipRow}>
-                {moodFilters.map((filter) => (
+              {personalizedRows.length ? (
+                personalizedRows.map((row) => (
+                  <section key={row.key} className={styles.section}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <p className={styles.topLabel}>{row.subtitle}</p>
+                        <h3>{row.title}</h3>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        onClick={() => {
+                          setQuery(row.query);
+                          setActiveSection("Browse");
+                          void runSearch(row.query);
+                        }}
+                      >
+                        Open lane
+                      </button>
+                    </div>
+
+                    <div className={styles.cardRail}>
+                      {row.items.map((track) => (
+                        <article key={`${row.key}-${track.id}`} className={styles.mediaCard}>
+                          <button
+                            type="button"
+                            className={styles.mediaButton}
+                            onClick={() => playTrack(track)}
+                          >
+                            <div className={styles.mediaArt}>
+                              <Image
+                                src={track.thumbnailUrl}
+                                alt={track.title}
+                                fill
+                                sizes="220px"
+                                className={styles.coverArt}
+                              />
+                            </div>
+                            <div className={styles.mediaMeta}>
+                              <strong>{track.title}</strong>
+                              <span>{track.channelTitle}</span>
+                            </div>
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ))
+              ) : (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.topLabel}>Taste-based suggestions</p>
+                      <h3>Your home will tighten up after a few plays</h3>
+                    </div>
+                  </div>
+                  <div className={styles.emptyPanel}>
+                    Search artists you already love, then like or save a few tracks.
+                    That gives SmbaMusic enough signal to build a closer home page.
+                  </div>
+                </section>
+              )}
+
+              {recentTracks.length ? (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.topLabel}>Recent</p>
+                      <h3>Played lately</h3>
+                    </div>
+                  </div>
+                  <div className={styles.listPanel}>
+                    {recentTracks.slice(0, 6).map((track) => (
+                      <TrackRow
+                        key={`recent-${track.id}`}
+                        track={track}
+                        isSaved={savedIds.has(track.id)}
+                        isLiked={likedIds.has(track.id)}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </>
+          ) : null}
+
+          {activeSection === "Browse" ? (
+            <>
+              <section className={styles.chipSection}>
+                {browseScenes.map((scene) => (
                   <button
-                    key={filter}
+                    key={scene}
                     type="button"
-                    className={styles.chip}
+                    className={styles.sceneChip}
                     onClick={() => {
-                      setQuery(filter);
-                      void runSearch(filter);
+                      setQuery(scene);
+                      void runSearch(scene);
                     }}
                   >
-                    {filter}
+                    {scene}
                   </button>
                 ))}
-              </div>
-
-              <section className={styles.contentSection}>
-                <div className={styles.sectionHeader}>
-                  <div>
-                    <p className={styles.sectionEyebrow}>Quick picks</p>
-                    <h3>Featured for SmbaMusic</h3>
-                  </div>
-                </div>
-
-                <div className={styles.featureGrid}>
-                  {featuredTracks.map((video) => (
-                    <article key={video.id} className={styles.featureCard}>
-                      <button
-                        className={styles.featurePlayButton}
-                        type="button"
-                        onClick={() => playNow(video)}
-                      >
-                        <div className={styles.featureArt}>
-                          <Image
-                            src={video.thumbnailUrl}
-                            alt={video.title}
-                            fill
-                            sizes="240px"
-                            className={styles.coverArt}
-                          />
-                        </div>
-                        <span className={styles.featureTitle}>{video.title}</span>
-                        <span className={styles.featureMeta}>{video.channelTitle}</span>
-                      </button>
-                      <div className={styles.featureActions}>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            savedTrackIds.has(video.id) ? styles.actionActive : ""
-                          } ${pulseKey === `save-${video.id}` ? styles.buttonPulse : ""}`}
-                          type="button"
-                          onClick={() => toggleSavedTrack(video)}
-                        >
-                          {savedTrackIds.has(video.id) ? "Saved" : "Save"}
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            likedIdSet.has(video.id) ? styles.actionActive : ""
-                          } ${pulseKey === `like-${video.id}` ? styles.buttonPulse : ""}`}
-                          type="button"
-                          onClick={() => toggleLikedTrack(video)}
-                        >
-                          {likedIdSet.has(video.id) ? "Liked" : "Like"}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
               </section>
 
-              <section className={styles.resultsSection}>
+              <section className={styles.section}>
                 <div className={styles.sectionHeader}>
                   <div>
-                    <p className={styles.sectionEyebrow}>Search results</p>
-                    <h3>Playable on YouTube embed</h3>
+                    <p className={styles.topLabel}>Search results</p>
+                    <h3>Use search to shape your library</h3>
                   </div>
                 </div>
-
                 {error ? <p className={styles.error}>{error}</p> : null}
-
-                <div className={styles.results}>
-                  {visibleResults.map((video) => (
-                    <article key={video.id} className={styles.resultItem}>
-                      <div className={styles.resultMedia}>
-                        <div className={styles.thumbWrap}>
-                          <Image
-                            src={video.thumbnailUrl}
-                            alt={video.title}
-                            fill
-                            sizes="160px"
-                            className={styles.coverArt}
-                          />
-                        </div>
-                        <div className={styles.resultCopy}>
-                          <strong>{video.title}</strong>
-                          <span>{video.channelTitle}</span>
-                        </div>
-                      </div>
-
-                      <div className={styles.resultActions}>
-                        <button
-                          className={styles.secondaryButton}
-                          type="button"
-                          onClick={() => playNow(video)}
-                        >
-                          Play
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            pulseKey === `queue-${video.id}` ? styles.buttonPulse : ""
-                          }`}
-                          type="button"
-                          onClick={() => addToQueue(video)}
-                        >
-                          Add to queue
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            savedTrackIds.has(video.id) ? styles.actionActive : ""
-                          } ${pulseKey === `save-${video.id}` ? styles.buttonPulse : ""}`}
-                          type="button"
-                          onClick={() => toggleSavedTrack(video)}
-                        >
-                          {savedTrackIds.has(video.id) ? "Saved" : "Save"}
-                        </button>
-                        <button
-                          className={`${styles.secondaryButton} ${
-                            likedIdSet.has(video.id) ? styles.actionActive : ""
-                          } ${pulseKey === `like-${video.id}` ? styles.buttonPulse : ""}`}
-                          type="button"
-                          onClick={() => toggleLikedTrack(video)}
-                        >
-                          {likedIdSet.has(video.id) ? "Liked" : "Like"}
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-
-                  {!visibleResults.length && !isSearching ? (
-                    <p className={styles.emptyState}>
-                      Search above to fill SmbaMusic with embeddable YouTube tracks.
-                    </p>
-                  ) : null}
-                </div>
+                {browseCards.length ? (
+                  <div className={styles.listPanel}>
+                    {browseCards.map((track) => (
+                      <TrackRow
+                        key={`browse-${track.id}`}
+                        track={track}
+                        isSaved={savedIds.has(track.id)}
+                        isLiked={likedIds.has(track.id)}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyPanel}>
+                    Search by artist, album mood, or scene and the results will show up
+                    here.
+                  </div>
+                )}
               </section>
             </>
-          )}
+          ) : null}
+
+          {activeSection === "Library" ? (
+            <>
+              <section className={styles.libraryGrid}>
+                <article className={styles.libraryTile}>
+                  <span className={styles.topLabel}>Saved</span>
+                  <strong>{savedTracks.length}</strong>
+                  <p>Tracks you chose to keep close.</p>
+                </article>
+                <article className={styles.libraryTile}>
+                  <span className={styles.topLabel}>Liked</span>
+                  <strong>{likedTracks.length}</strong>
+                  <p>Favorites that shape your recommendations.</p>
+                </article>
+                <article className={styles.libraryTile}>
+                  <span className={styles.topLabel}>Recent</span>
+                  <strong>{recentTracks.length}</strong>
+                  <p>Your last sessions, ready to reopen.</p>
+                </article>
+              </section>
+
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Saved tracks</p>
+                    <h3>Main library</h3>
+                  </div>
+                </div>
+                {savedTracks.length ? (
+                  <div className={styles.listPanel}>
+                    {savedTracks.map((track) => (
+                      <TrackRow
+                        key={`saved-${track.id}`}
+                        track={track}
+                        isSaved={true}
+                        isLiked={likedIds.has(track.id)}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyPanel}>
+                    Your saved tracks will live here once you start building a library.
+                  </div>
+                )}
+              </section>
+
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Liked tracks</p>
+                    <h3>Favorites</h3>
+                  </div>
+                </div>
+                {likedTracks.length ? (
+                  <div className={styles.listPanel}>
+                    {likedTracks.map((track) => (
+                      <TrackRow
+                        key={`liked-${track.id}`}
+                        track={track}
+                        isSaved={savedIds.has(track.id)}
+                        isLiked={true}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyPanel}>
+                    Likes stay separate now, and they directly shape the home screen.
+                  </div>
+                )}
+              </section>
+            </>
+          ) : null}
+
+          {activeSection === "Settings" ? (
+            <section className={styles.settingsGrid}>
+              <article className={styles.settingsCard}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Appearance</p>
+                    <h3>Keep it clean</h3>
+                  </div>
+                </div>
+                <div className={styles.optionGrid}>
+                  {(["system", "light", "dark"] as AppearanceMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={`${styles.optionCard} ${
+                        settings.appearance === mode ? styles.optionCardActive : ""
+                      }`}
+                      onClick={() => updateSetting("appearance", mode)}
+                    >
+                      <strong>{mode[0].toUpperCase() + mode.slice(1)}</strong>
+                      <span>
+                        {mode === "system"
+                          ? "Matches your device"
+                          : mode === "light"
+                            ? "Bright and airy"
+                            : "Dark and focused"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </article>
+
+              <article className={styles.settingsCard}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Playback</p>
+                    <h3>Music controls</h3>
+                  </div>
+                </div>
+                <div className={styles.settingList}>
+                  <button
+                    type="button"
+                    className={styles.settingRow}
+                    onClick={() =>
+                      updateSetting("autoplayNext", !settings.autoplayNext)
+                    }
+                  >
+                    <span>
+                      <strong>Autoplay next track</strong>
+                      <span>Move through your queue when a song ends.</span>
+                    </span>
+                    <span>{settings.autoplayNext ? "On" : "Off"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.settingRow}
+                    onClick={() =>
+                      updateSetting("reducedMotion", !settings.reducedMotion)
+                    }
+                  >
+                    <span>
+                      <strong>Reduced motion</strong>
+                      <span>Dial back transitions across the app.</span>
+                    </span>
+                    <span>{settings.reducedMotion ? "On" : "Off"}</span>
+                  </button>
+                </div>
+              </article>
+            </section>
+          ) : null}
         </section>
       </div>
 
-      {isPlayerVisible ? (
-        <section
-          className={`${styles.playerDock} ${
-            isPlayerExpanded ? styles.playerDockExpanded : ""
-          }`}
-        >
-        <button
-          className={styles.playerGrabber}
-          onClick={togglePlayerExpanded}
-          aria-label={isPlayerExpanded ? "Collapse player" : "Expand player"}
-          type="button"
-        >
-          <span className={styles.playerGrabberBar} />
-        </button>
-        <button
-          className={styles.closePlayerButton}
-          onClick={closePlayer}
-          aria-label="Close player"
-          type="button"
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-        <button
-          className={styles.playerSummary}
-          onClick={togglePlayerExpanded}
-          type="button"
-        >
-          <div className={styles.playerThumb}>
-            {currentVideo.thumbnailUrl ? (
-              <Image
-                src={currentVideo.thumbnailUrl}
-                alt={currentVideo.title}
-                fill
-                sizes="64px"
-                className={styles.coverArt}
-              />
-            ) : null}
-          </div>
-          <div className={styles.playerText}>
-            <strong>{currentVideo.title}</strong>
-            <span>{currentVideo.channelTitle}</span>
-          </div>
-        </button>
-
-        <div className={styles.playerCenter}>
-          <div className={styles.playerControls}>
+      {isPlayerVisible && currentVideo ? (
+        <section className={styles.playerBar}>
+          <div className={styles.playerCurrent}>
             <button
-              className={styles.controlButton}
-              onClick={playNext}
               type="button"
+              className={styles.playerCoverButton}
+              onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}
             >
-              Next
+              <div className={styles.playerCover}>
+                <Image
+                  src={currentVideo.thumbnailUrl}
+                  alt={currentVideo.title}
+                  fill
+                  sizes="72px"
+                  className={styles.coverArt}
+                />
+              </div>
             </button>
-            <button
-              className={styles.primaryButton}
-              type="button"
-              onClick={() => playNow(currentVideo)}
-            >
-              Playing
-            </button>
+            <div className={styles.playerCopy}>
+              <strong>{currentVideo.title}</strong>
+              <span>{currentVideo.channelTitle}</span>
+            </div>
           </div>
-          <div className={styles.playerFrame}>
-            <div id="youtube-player" className={styles.playerSlot} />
+
+          <div className={styles.playerMiddle}>
+            <div className={styles.playerButtons}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}
+              >
+                Playing
+              </button>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={playNext}
+                disabled={!queuePreview.length}
+              >
+                Next
+              </button>
+            </div>
+            <div className={styles.playerFrame}>
+              <div id="youtube-player" className={styles.playerSlot} />
+            </div>
           </div>
-        </div>
 
-        <div className={styles.playerInfo}>
-          <span>{queue.length} in queue</span>
-          <span>{savedTracks.length} saved</span>
-          <span>Official YouTube embed</span>
-        </div>
-      </section>
-      ) : null}
-
-      {toast ? (
-        <div key={toast.id} className={styles.toast}>
-          {toast.message}
-        </div>
+          <div className={styles.playerQueueArea}>
+            <div className={styles.playerQueueHeader}>
+              <span>Up Next</span>
+              <div className={styles.playerQueueActions}>
+                <button
+                  type="button"
+                  className={styles.queueArrow}
+                  onClick={() => scrollQueue("left")}
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  className={styles.queueArrow}
+                  onClick={() => scrollQueue("right")}
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  className={styles.queueArrow}
+                  onClick={closePlayer}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div ref={queueScrollerRef} className={styles.playerQueueScroller}>
+              {queuePreview.length ? (
+                queuePreview.map((track) => (
+                  <button
+                    key={`up-next-${track.id}`}
+                    type="button"
+                    className={styles.upNextCard}
+                    onClick={() => playTrack(track, { autoplay: true, addToQueue: false })}
+                  >
+                    <div className={styles.upNextThumb}>
+                      <Image
+                        src={track.thumbnailUrl}
+                        alt={track.title}
+                        fill
+                        sizes="96px"
+                        className={styles.coverArt}
+                      />
+                    </div>
+                    <div className={styles.upNextCopy}>
+                      <strong>{track.title}</strong>
+                      <span>{track.channelTitle}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className={styles.upNextEmpty}>
+                  Swipe here on mobile once you queue another track.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       ) : null}
     </main>
+  );
+}
+
+type TrackRowProps = {
+  track: VideoItem;
+  isSaved: boolean;
+  isLiked: boolean;
+  onPlay: () => void;
+  onSave: () => void;
+  onLike: () => void;
+  onQueue: () => void;
+};
+
+function TrackRow({
+  track,
+  isSaved,
+  isLiked,
+  onPlay,
+  onSave,
+  onLike,
+  onQueue
+}: TrackRowProps) {
+  return (
+    <article className={styles.trackRow}>
+      <button type="button" className={styles.trackMain} onClick={onPlay}>
+        <div className={styles.trackThumb}>
+          <Image
+            src={track.thumbnailUrl}
+            alt={track.title}
+            fill
+            sizes="96px"
+            className={styles.coverArt}
+          />
+        </div>
+        <div className={styles.trackCopy}>
+          <strong>{track.title}</strong>
+          <span>{track.channelTitle}</span>
+        </div>
+      </button>
+
+      <div className={styles.trackActions}>
+        <button type="button" className={styles.secondaryButton} onClick={onQueue}>
+          Queue
+        </button>
+        <button type="button" className={styles.secondaryButton} onClick={onSave}>
+          {isSaved ? "Saved" : "Save"}
+        </button>
+        <button type="button" className={styles.secondaryButton} onClick={onLike}>
+          {isLiked ? "Liked" : "Like"}
+        </button>
+      </div>
+    </article>
   );
 }
