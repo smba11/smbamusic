@@ -19,6 +19,17 @@ type YouTubeSearchResponse = {
   }>;
 };
 
+type YouTubeApiErrorResponse = {
+  error?: {
+    code?: number;
+    message?: string;
+    errors?: Array<{
+      message?: string;
+      reason?: string;
+    }>;
+  };
+};
+
 function getThumbnailUrl(videoId: string, fallback?: string) {
   const candidates = [
     `https://i.ytimg.com/vi/${videoId}/hq720.jpg`,
@@ -54,7 +65,36 @@ export async function searchYouTubeVideos(query: string): Promise<VideoItem[]> {
   );
 
   if (!response.ok) {
-    throw new Error(`YouTube API request failed with status ${response.status}.`);
+    let apiMessage = "";
+
+    try {
+      const errorData = (await response.json()) as YouTubeApiErrorResponse;
+      const reason = errorData.error?.errors?.[0]?.reason;
+      const message = errorData.error?.message;
+
+      if (reason === "quotaExceeded" || reason === "dailyLimitExceeded") {
+        apiMessage =
+          "YouTube API quota exceeded. Generate a fresh quota day or use a key with available quota.";
+      } else if (reason === "accessNotConfigured") {
+        apiMessage =
+          "YouTube Data API v3 is not enabled for this Google Cloud project.";
+      } else if (reason === "ipRefererBlocked") {
+        apiMessage =
+          "The API key restrictions are blocking this deployment. Remove the IP/referrer restriction or create a server-safe key.";
+      } else if (reason === "keyInvalid") {
+        apiMessage = "The YouTube API key is invalid.";
+      } else if (message) {
+        apiMessage = message;
+      }
+    } catch {
+      apiMessage = "";
+    }
+
+    throw new Error(
+      apiMessage
+        ? `YouTube API error: ${apiMessage}`
+        : `YouTube API request failed with status ${response.status}.`
+    );
   }
 
   const data = (await response.json()) as YouTubeSearchResponse;
