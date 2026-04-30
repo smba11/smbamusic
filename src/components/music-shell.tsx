@@ -565,6 +565,7 @@ export function MusicShell() {
             {navItems.map((item) => (
               <button
                 key={item}
+                type="button"
                 className={`${styles.navItem} ${
                   activeSection === item ? styles.navItemActive : ""
                 }`}
@@ -582,6 +583,7 @@ export function MusicShell() {
               {queue.slice(0, 5).map((video, index) => (
                 <button
                   key={`${video.id}-${index}`}
+                  type="button"
                   className={styles.queueItem}
                   onClick={() => playNow(video)}
                 >
@@ -615,6 +617,7 @@ export function MusicShell() {
                 <article key={video.id} className={styles.savedItem}>
                   <button
                     className={styles.savedPlayButton}
+                    type="button"
                     onClick={() => playNow(video)}
                   >
                     <span className={styles.queueText}>
@@ -638,6 +641,7 @@ export function MusicShell() {
                 <article key={`${video.id}-recent`} className={styles.savedItem}>
                   <button
                     className={styles.savedPlayButton}
+                    type="button"
                     onClick={() => playNow(video)}
                   >
                     <span className={styles.queueText}>
@@ -664,7 +668,11 @@ export function MusicShell() {
                 placeholder="Search songs, artists, videos"
                 className={styles.searchInput}
               />
-              <button className={styles.searchButton} disabled={isSearching}>
+              <button
+                className={styles.searchButton}
+                disabled={isSearching}
+                type="submit"
+              >
                 {isSearching ? "Searching..." : "Search"}
               </button>
             </form>
@@ -730,18 +738,21 @@ export function MusicShell() {
                       <div className={styles.resultActions}>
                         <button
                           className={styles.secondaryButton}
+                          type="button"
                           onClick={() => playNow(video)}
                         >
                           Play
                         </button>
                         <button
                           className={styles.secondaryButton}
+                          type="button"
                           onClick={() => addToQueue(video)}
                         >
                           Queue
                         </button>
                         <button
                           className={styles.secondaryButton}
+                          type="button"
                           onClick={() => toggleSavedTrack(video)}
                         >
                           Remove
@@ -771,6 +782,7 @@ export function MusicShell() {
                       <article key={`liked-${video.id}`} className={styles.savedItem}>
                         <button
                           className={styles.savedPlayButton}
+                          type="button"
                           onClick={() => playNow(video)}
                         >
                           <span className={styles.queueText}>
@@ -798,6 +810,7 @@ export function MusicShell() {
                       <article key={`recent-page-${video.id}`} className={styles.savedItem}>
                         <button
                           className={styles.savedPlayButton}
+                          type="button"
                           onClick={() => playNow(video)}
                         >
                           <span className={styles.queueText}>
@@ -830,6 +843,7 @@ export function MusicShell() {
                   {exploreCollections.slice(0, 3).map((collection) => (
                     <button
                       key={collection.title}
+                      type="button"
                       className={styles.orbitChip}
                       onClick={() => {
                         setQuery(collection.query);
@@ -846,6 +860,7 @@ export function MusicShell() {
                 {exploreCollections.map((collection) => (
                   <button
                     key={collection.title}
+                    type="button"
                     className={styles.collectionCard}
                     onClick={() => {
                       setQuery(collection.query);
@@ -871,6 +886,7 @@ export function MusicShell() {
                   {exploreGenres.map((genre) => (
                     <button
                       key={genre}
+                      type="button"
                       className={styles.genreCard}
                       onClick={() => {
                         setQuery(genre);
@@ -917,6 +933,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             pulseKey === `play-${video.id}` ? styles.buttonPulse : ""
                           }`}
+                          type="button"
                           onClick={() => playNow(video)}
                         >
                           Play
@@ -925,6 +942,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             pulseKey === `queue-${video.id}` ? styles.buttonPulse : ""
                           }`}
+                          type="button"
                           onClick={() => addToQueue(video)}
                         >
                           Queue
@@ -933,6 +951,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             savedTrackIds.has(video.id) ? styles.actionActive : ""
                           } ${pulseKey === `save-${video.id}` ? styles.buttonPulse : ""}`}
+                          type="button"
                           onClick={() => toggleSavedTrack(video)}
                         >
                           {savedTrackIds.has(video.id) ? "Saved" : "Save"}
@@ -941,6 +960,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             likedIdSet.has(video.id) ? styles.actionActive : ""
                           } ${pulseKey === `like-${video.id}` ? styles.buttonPulse : ""}`}
+                          type="button"
                           onClick={() => toggleLikedTrack(video)}
                         >
                           {likedIdSet.has(video.id) ? "Liked" : "Like"}
@@ -976,6 +996,7 @@ export function MusicShell() {
                     {themeOptions.map((option) => (
                       <button
                         key={option.id}
+                        type="button"
                         className={`${styles.themeOption} ${
                           settings.theme === option.id ? styles.themeOptionActive : ""
                         }`}
@@ -1003,6 +1024,7 @@ export function MusicShell() {
                   <div className={styles.settingsList}>
                     <button
                       className={styles.settingRow}
+                      type="button"
                       onClick={() =>
                         updateSettings("autoplayNext", !settings.autoplayNext)
                       }
@@ -1017,6 +1039,7 @@ export function MusicShell() {
                     </button>
                     <button
                       className={styles.settingRow}
+                      type="button"
                       onClick={() =>
                         updateSettings(
                           "mobilePlayerExpanded",
@@ -1045,6 +1068,7 @@ export function MusicShell() {
                   <div className={styles.settingsList}>
                     <button
                       className={styles.settingRow}
+                      type="button"
                       onClick={() => updateSettings("showToasts", !settings.showToasts)}
                     >
                       <span>
@@ -1057,6 +1081,7 @@ export function MusicShell() {
                     </button>
                     <button
                       className={styles.settingRow}
+                      type="button"
                       onClick={() =>
                         updateSettings("reducedMotion", !settings.reducedMotion)
                       }
@@ -1086,11 +1111,16 @@ export function MusicShell() {
                   <div className={styles.heroActions}>
                     <button
                       className={styles.primaryButton}
+                      type="button"
                       onClick={() => playNow(currentVideo)}
                     >
                       Play now
                     </button>
-                    <button className={styles.secondaryButton} onClick={playNext}>
+                    <button
+                      className={styles.secondaryButton}
+                      onClick={playNext}
+                      type="button"
+                    >
                       Skip ahead
                     </button>
                   </div>
@@ -1119,6 +1149,7 @@ export function MusicShell() {
                 {moodFilters.map((filter) => (
                   <button
                     key={filter}
+                    type="button"
                     className={styles.chip}
                     onClick={() => {
                       setQuery(filter);
@@ -1143,6 +1174,7 @@ export function MusicShell() {
                     <article key={video.id} className={styles.featureCard}>
                       <button
                         className={styles.featurePlayButton}
+                        type="button"
                         onClick={() => playNow(video)}
                       >
                         <div className={styles.featureArt}>
@@ -1162,6 +1194,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             savedTrackIds.has(video.id) ? styles.actionActive : ""
                           } ${pulseKey === `save-${video.id}` ? styles.buttonPulse : ""}`}
+                          type="button"
                           onClick={() => toggleSavedTrack(video)}
                         >
                           {savedTrackIds.has(video.id) ? "Saved" : "Save"}
@@ -1170,6 +1203,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             likedIdSet.has(video.id) ? styles.actionActive : ""
                           } ${pulseKey === `like-${video.id}` ? styles.buttonPulse : ""}`}
+                          type="button"
                           onClick={() => toggleLikedTrack(video)}
                         >
                           {likedIdSet.has(video.id) ? "Liked" : "Like"}
@@ -1212,6 +1246,7 @@ export function MusicShell() {
                       <div className={styles.resultActions}>
                         <button
                           className={styles.secondaryButton}
+                          type="button"
                           onClick={() => playNow(video)}
                         >
                           Play
@@ -1220,6 +1255,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             pulseKey === `queue-${video.id}` ? styles.buttonPulse : ""
                           }`}
+                          type="button"
                           onClick={() => addToQueue(video)}
                         >
                           Add to queue
@@ -1228,6 +1264,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             savedTrackIds.has(video.id) ? styles.actionActive : ""
                           } ${pulseKey === `save-${video.id}` ? styles.buttonPulse : ""}`}
+                          type="button"
                           onClick={() => toggleSavedTrack(video)}
                         >
                           {savedTrackIds.has(video.id) ? "Saved" : "Save"}
@@ -1236,6 +1273,7 @@ export function MusicShell() {
                           className={`${styles.secondaryButton} ${
                             likedIdSet.has(video.id) ? styles.actionActive : ""
                           } ${pulseKey === `like-${video.id}` ? styles.buttonPulse : ""}`}
+                          type="button"
                           onClick={() => toggleLikedTrack(video)}
                         >
                           {likedIdSet.has(video.id) ? "Liked" : "Like"}
@@ -1302,11 +1340,16 @@ export function MusicShell() {
 
         <div className={styles.playerCenter}>
           <div className={styles.playerControls}>
-            <button className={styles.controlButton} onClick={playNext}>
+            <button
+              className={styles.controlButton}
+              onClick={playNext}
+              type="button"
+            >
               Next
             </button>
             <button
               className={styles.primaryButton}
+              type="button"
               onClick={() => playNow(currentVideo)}
             >
               Playing
