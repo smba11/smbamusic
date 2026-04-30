@@ -35,7 +35,7 @@ type YouTubePlayer = {
   playVideo: () => void;
 };
 
-type SectionName = "Listen Now" | "New" | "Radio" | "Library" | "Settings";
+type SectionName = "Listen Now" | "Browse" | "Library" | "Settings";
 type AppearanceMode = "system" | "light" | "dark";
 type AppSettings = {
   appearance: AppearanceMode;
@@ -50,20 +50,19 @@ type PersonalizedRow = {
   items: VideoItem[];
 };
 
-const navItems: SectionName[] = ["Listen Now", "New", "Radio", "Library", "Settings"];
-const mobileTabs: SectionName[] = ["Listen Now", "New", "Radio", "Library"];
+const navItems: SectionName[] = ["Listen Now", "Browse", "Library", "Settings"];
 const SAVED_TRACKS_KEY = "smbamusic-saved-tracks";
 const LIKED_TRACKS_KEY = "smbamusic-liked-tracks";
 const RECENT_TRACKS_KEY = "smbamusic-recent-tracks";
-const SETTINGS_KEY = "smbamusic-settings-v3";
+const SETTINGS_KEY = "smbamusic-settings-v2";
 
-const sceneSeeds = [
-  "Viral Hits",
-  "Alternative Pop",
-  "Late Night R&B",
-  "Amapiano Essentials",
-  "Lo-fi Focus",
-  "Soft Indie"
+const browseScenes = [
+  "Alternative R&B",
+  "Amapiano",
+  "Indie Soul",
+  "Late Night Jazz",
+  "Afrobeats",
+  "Dream Pop"
 ];
 
 const defaultSettings: AppSettings = {
@@ -84,14 +83,6 @@ function extractArtist(track: VideoItem) {
   return track.channelTitle.replace(/\s*-\s*topic$/i, "").trim();
 }
 
-function mergeTracks(...collections: VideoItem[][]) {
-  return collections
-    .flat()
-    .filter(
-      (track, index, all) => all.findIndex((item) => item.id === track.id) === index
-    );
-}
-
 function buildTasteRows(tracks: VideoItem[]): Array<Omit<PersonalizedRow, "items">> {
   const unique = tracks.filter(
     (track, index, all) => all.findIndex((item) => item.id === track.id) === index
@@ -101,30 +92,44 @@ function buildTasteRows(tracks: VideoItem[]): Array<Omit<PersonalizedRow, "items
     return [];
   }
 
-  const first = unique[0];
-  const second = unique[1] ?? first;
-  const third = unique[2] ?? second;
+  const rows: Array<Omit<PersonalizedRow, "items">> = [];
+  const artistSeed = unique[0];
+  const artist = extractArtist(artistSeed);
+  const titleSeed = cleanTitle(unique[0].title);
+  const secondArtist = unique[1] ? extractArtist(unique[1]) : artist;
 
-  return [
-    {
-      key: `artist-${first.id}`,
-      title: `Because you liked ${extractArtist(first)}`,
-      subtitle: "Picked from your own library.",
-      query: `${extractArtist(first)} essentials`
-    },
-    {
-      key: `title-${second.id}`,
-      title: `More like ${cleanTitle(second.title)}`,
-      subtitle: "Close matches instead of generic filler.",
-      query: `${cleanTitle(second.title)} songs like this`
-    },
-    {
-      key: `radio-${third.id}`,
-      title: `${extractArtist(third)} Radio`,
-      subtitle: "A softer station built from your recent taste.",
-      query: `${extractArtist(third)} mix radio`
-    }
-  ];
+  rows.push({
+    key: `artist-${artist}`,
+    title: `Because you liked ${artist}`,
+    subtitle: "A tighter lane built from what you already saved.",
+    query: `${artist} similar artists mix`
+  });
+
+  rows.push({
+    key: `title-${titleSeed}`,
+    title: `More like ${titleSeed}`,
+    subtitle: "Close matches instead of random filler.",
+    query: `${titleSeed} songs like this`
+  });
+
+  rows.push({
+    key: `artist-two-${secondArtist}`,
+    title: `${secondArtist} and related`,
+    subtitle: "A softer radio-style pull from your recent taste.",
+    query: `${secondArtist} essentials playlist`
+  });
+
+  return rows.filter(
+    (row, index, all) => all.findIndex((item) => item.query === row.query) === index
+  );
+}
+
+function mergeTracks(...collections: VideoItem[][]) {
+  return collections
+    .flat()
+    .filter(
+      (track, index, all) => all.findIndex((item) => item.id === track.id) === index
+    );
 }
 
 export function MusicShell() {
@@ -153,17 +158,14 @@ export function MusicShell() {
   const savedIds = useMemo(() => new Set(savedTracks.map((track) => track.id)), [savedTracks]);
   const likedIds = useMemo(() => new Set(likedTracks.map((track) => track.id)), [likedTracks]);
   const tasteTracks = useMemo(() => {
-    const base = currentVideo ? [currentVideo, ...recentTracks] : recentTracks;
-    return mergeTracks(likedTracks, savedTracks, base).slice(0, 6);
+    const source = currentVideo ? [currentVideo, ...recentTracks] : recentTracks;
+    return mergeTracks(likedTracks, savedTracks, source).slice(0, 6);
   }, [currentVideo, likedTracks, recentTracks, savedTracks]);
   const queuePreview = useMemo(
     () => queue.filter((track) => track.id !== currentVideo?.id),
     [currentVideo?.id, queue]
   );
-  const homeRows = personalizedRows.slice(0, 2);
-  const radioRows = personalizedRows.slice(2);
-  const leadTrack = currentVideo ?? recentTracks[0] ?? likedTracks[0] ?? savedTracks[0] ?? null;
-  const newHighlights = results.length ? results.slice(0, 6) : recentTracks.slice(0, 6);
+  const heroTrack = currentVideo ?? recentTracks[0] ?? savedTracks[0] ?? likedTracks[0] ?? null;
 
   useEffect(() => {
     const script = document.getElementById("youtube-iframe-api");
@@ -232,6 +234,7 @@ export function MusicShell() {
     if (!isLibraryReady) {
       return;
     }
+
     window.localStorage.setItem(SAVED_TRACKS_KEY, JSON.stringify(savedTracks));
   }, [isLibraryReady, savedTracks]);
 
@@ -239,6 +242,7 @@ export function MusicShell() {
     if (!isLibraryReady) {
       return;
     }
+
     window.localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedTracks));
   }, [isLibraryReady, likedTracks]);
 
@@ -246,6 +250,7 @@ export function MusicShell() {
     if (!isLibraryReady) {
       return;
     }
+
     window.localStorage.setItem(RECENT_TRACKS_KEY, JSON.stringify(recentTracks));
   }, [isLibraryReady, recentTracks]);
 
@@ -253,6 +258,7 @@ export function MusicShell() {
     if (!isLibraryReady) {
       return;
     }
+
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }, [isLibraryReady, settings]);
 
@@ -337,19 +343,21 @@ export function MusicShell() {
       return;
     }
 
-    const rows = buildTasteRows(tasteTracks);
+    const baseRows = buildTasteRows(tasteTracks).slice(0, 3);
     const requestId = personalizedRequestIdRef.current + 1;
     personalizedRequestIdRef.current = requestId;
 
     void (async () => {
-      const loaded = await Promise.all(
-        rows.map(async (row) => {
+      const loadedRows = await Promise.all(
+        baseRows.map(async (row) => {
           try {
             const response = await fetch(`/api/search?q=${encodeURIComponent(row.query)}`);
             const data = (await response.json()) as { items?: VideoItem[] };
+
             if (!response.ok) {
               return null;
             }
+
             return {
               ...row,
               items: (data.items ?? []).slice(0, 6)
@@ -365,7 +373,7 @@ export function MusicShell() {
       }
 
       setPersonalizedRows(
-        loaded.filter((row): row is PersonalizedRow => Boolean(row?.items.length))
+        loadedRows.filter((row): row is PersonalizedRow => Boolean(row?.items.length))
       );
     })();
   }, [tasteTracks]);
@@ -385,7 +393,10 @@ export function MusicShell() {
 
     try {
       const response = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
-      const data = (await response.json()) as { items?: VideoItem[]; error?: string };
+      const data = (await response.json()) as {
+        items?: VideoItem[];
+        error?: string;
+      };
 
       if (!response.ok) {
         throw new Error(data.error ?? "Search failed.");
@@ -409,7 +420,7 @@ export function MusicShell() {
 
   async function handleSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    setActiveSection("New");
+    setActiveSection("Browse");
     await runSearch(query);
   }
 
@@ -430,6 +441,7 @@ export function MusicShell() {
         if (current.some((item) => item.id === video.id)) {
           return current;
         }
+
         return current.length ? [...current, video] : [video];
       });
     }
@@ -440,6 +452,7 @@ export function MusicShell() {
       if (current.some((item) => item.id === video.id)) {
         return current;
       }
+
       return [...current, video];
     });
   }
@@ -448,6 +461,7 @@ export function MusicShell() {
     if (!queuePreview.length) {
       return;
     }
+
     playTrack(queuePreview[0], { autoplay: true, addToQueue: false });
   }
 
@@ -456,6 +470,7 @@ export function MusicShell() {
       if (current.some((item) => item.id === video.id)) {
         return current.filter((item) => item.id !== video.id);
       }
+
       return [video, ...current];
     });
   }
@@ -465,6 +480,7 @@ export function MusicShell() {
       if (current.some((item) => item.id === video.id)) {
         return current.filter((item) => item.id !== video.id);
       }
+
       return [video, ...current];
     });
   }
@@ -484,41 +500,27 @@ export function MusicShell() {
 
   function scrollQueue(direction: "left" | "right") {
     queueScrollerRef.current?.scrollBy({
-      left: direction === "left" ? -220 : 220,
+      left: direction === "left" ? -240 : 240,
       behavior: "smooth"
     });
   }
 
-  const searchCards = query.trim().length ? results : newHighlights;
+  const browseCards = query.trim().length ? results : recentTracks;
 
   return (
     <main className={styles.page}>
-      <div className={styles.windowShell}>
+      <div className={styles.shell}>
         <aside className={styles.sidebar}>
-          <div className={styles.sidebarTop}>
-            <div className={styles.brandLockup}>
-              <div className={styles.brandBadge} aria-hidden="true">
-                <span className={styles.brandStripe} />
-                <span className={styles.brandStripe} />
-                <span className={styles.brandStripe} />
-              </div>
-              <div>
-                <strong className={styles.brandTitle}>SmbaMusic</strong>
-                <span className={styles.brandSubtle}>Your library, refined.</span>
-              </div>
+          <div className={styles.brandBlock}>
+            <div className={styles.brandMark} aria-hidden="true">
+              <span className={styles.brandBar} />
+              <span className={styles.brandBar} />
+              <span className={styles.brandBar} />
             </div>
-
-            <form className={styles.sidebarSearch} onSubmit={handleSearch}>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search"
-                className={styles.searchInput}
-              />
-              <button type="submit" className={styles.searchMini}>
-                {isSearching ? "..." : "Go"}
-              </button>
-            </form>
+            <div>
+              <span className={styles.sidebarLabel}>SmbaMusic</span>
+              <h1 className={styles.brandName}>Music, organized around your taste.</h1>
+            </div>
           </div>
 
           <nav className={styles.nav}>
@@ -531,563 +533,549 @@ export function MusicShell() {
                 }`}
                 onClick={() => setActiveSection(item)}
               >
-                <span className={styles.navGlyph} aria-hidden="true" />
-                <span>{item}</span>
+                {item}
               </button>
             ))}
           </nav>
 
-          <div className={styles.sidebarGroup}>
-            <span className={styles.groupLabel}>Library</span>
-            <button type="button" className={styles.libraryLink} onClick={() => setActiveSection("Library")}>
-              Recently Added
-            </button>
-            <button type="button" className={styles.libraryLink} onClick={() => setActiveSection("Library")}>
-              Songs
-            </button>
-            <button type="button" className={styles.libraryLink} onClick={() => setActiveSection("Library")}>
-              Playlists
-            </button>
-          </div>
+          <section className={styles.sidebarPanel}>
+            <span className={styles.sidebarLabel}>Library snapshot</span>
+            <div className={styles.statList}>
+              <div className={styles.statRow}>
+                <span>Saved</span>
+                <strong>{savedTracks.length}</strong>
+              </div>
+              <div className={styles.statRow}>
+                <span>Liked</span>
+                <strong>{likedTracks.length}</strong>
+              </div>
+              <div className={styles.statRow}>
+                <span>Recent</span>
+                <strong>{recentTracks.length}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className={styles.sidebarPanel}>
+            <span className={styles.sidebarLabel}>Current queue</span>
+            {queuePreview.length ? (
+              <div className={styles.compactList}>
+                {queuePreview.slice(0, 4).map((track) => (
+                  <button
+                    key={`queue-${track.id}`}
+                    type="button"
+                    className={styles.compactTrack}
+                    onClick={() => playTrack(track, { autoplay: true, addToQueue: false })}
+                  >
+                    <strong>{track.title}</strong>
+                    <span>{track.channelTitle}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyText}>
+                The next songs will appear here once you start playing music.
+              </p>
+            )}
+          </section>
         </aside>
 
-        <section className={styles.workspace}>
-          <header className={styles.toolbar}>
-            <div className={styles.toolbarPage}>
-              <h1 className={styles.pageTitle}>{activeSection}</h1>
+        <section className={styles.main}>
+          <header className={styles.topbar}>
+            <div>
+              <p className={styles.topLabel}>For you</p>
+              <h2 className={styles.topTitle}>
+                {activeSection === "Listen Now"
+                  ? "Listen Now"
+                  : activeSection === "Browse"
+                    ? "Browse"
+                    : activeSection}
+              </h2>
             </div>
 
-            <div className={styles.toolbarPlayer}>
-              <button type="button" className={styles.transportButton} onClick={playNext}>
-                Next
+            <form className={styles.searchForm} onSubmit={handleSearch}>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search artists, songs, or moods"
+                className={styles.searchInput}
+              />
+              <button type="submit" className={styles.searchButton} disabled={isSearching}>
+                {isSearching ? "Searching" : "Search"}
               </button>
-              <button
-                type="button"
-                className={styles.toolbarTrack}
-                onClick={() => {
-                  if (leadTrack) {
-                    playTrack(leadTrack, { autoplay: true, addToQueue: false });
-                  }
-                }}
-              >
-                {leadTrack ? (
-                  <>
-                    <span className={styles.toolbarThumb}>
-                      <Image
-                        src={leadTrack.thumbnailUrl}
-                        alt={leadTrack.title}
-                        fill
-                        sizes="52px"
-                        className={styles.coverArt}
-                      />
-                    </span>
-                    <span className={styles.toolbarTrackCopy}>
-                      <strong>{cleanTitle(leadTrack.title)}</strong>
-                      <span>{extractArtist(leadTrack)}</span>
-                    </span>
-                  </>
-                ) : (
-                  <span className={styles.toolbarEmpty}>Start playing to pin music here.</span>
-                )}
-              </button>
-            </div>
-
-            <div className={styles.toolbarActions}>
-              <button type="button" className={styles.transportButton} onClick={() => setActiveSection("Settings")}>
-                Settings
-              </button>
-            </div>
+            </form>
           </header>
 
           {activeSection === "Listen Now" ? (
-            <div className={styles.contentStack}>
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
-                  <div>
-                    <h2 className={styles.sectionTitle}>Top Picks</h2>
-                    <p className={styles.sectionMeta}>Just updated</p>
-                  </div>
-                  <button type="button" className={styles.linkButton} onClick={() => setActiveSection("Library")}>
-                    See All
-                  </button>
-                </div>
-                <div className={styles.featureGrid}>
-                  {(homeRows[0]?.items ?? recentTracks).slice(0, 2).map((track) => (
-                    <FeatureCard
-                      key={`top-${track.id}`}
-                      track={track}
-                      onPlay={() => playTrack(track)}
-                    />
-                  ))}
-                </div>
-              </section>
+            <>
+              <section className={styles.hero}>
+                <div className={styles.heroCopy}>
+                  <h3>
+                    {heroTrack
+                      ? `Built around ${extractArtist(heroTrack)}`
+                      : "A cleaner player that learns from what you keep"}
+                  </h3>
+                  <p>
+                    {heroTrack
+                      ? "Your home screen now leans on what you actually play, like, and save instead of repeating generic filler."
+                      : "Search artists you love, save a few tracks, and SmbaMusic will start shaping your home around your taste."}
+                  </p>
+                  <div className={styles.heroActions}>
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      onClick={() => {
+                        if (heroTrack) {
+                          playTrack(heroTrack);
+                          return;
+                        }
 
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
-                  <div>
-                    <h2 className={styles.sectionTitle}>Recently Played</h2>
-                    <p className={styles.sectionMeta}>Based on your last sessions</p>
+                        setActiveSection("Browse");
+                      }}
+                    >
+                      {heroTrack ? "Play current lane" : "Start with search"}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setActiveSection("Library")}
+                    >
+                      Open library
+                    </button>
                   </div>
                 </div>
-                <div className={styles.rowRail}>
-                  {recentTracks.slice(0, 6).map((track) => (
-                    <MiniCard
-                      key={`recent-${track.id}`}
-                      track={track}
-                      onPlay={() => playTrack(track)}
-                    />
-                  ))}
-                  {!recentTracks.length ? (
-                    <div className={styles.emptyPanel}>
-                      Your recent listening will show up here after your first plays.
+
+                <div className={styles.heroCard}>
+                  {heroTrack ? (
+                    <>
+                      <div className={styles.heroArt}>
+                        <Image
+                          src={heroTrack.thumbnailUrl}
+                          alt={heroTrack.title}
+                          fill
+                          sizes="420px"
+                          className={styles.coverArt}
+                        />
+                      </div>
+                      <div className={styles.heroMeta}>
+                        <strong>{heroTrack.title}</strong>
+                        <span>{heroTrack.channelTitle}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles.onboardingCard}>
+                      <strong>No random homepage rails.</strong>
+                      <span>
+                        Your suggestions will get better as soon as you search, save,
+                        and like a few artists.
+                      </span>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </section>
 
-              {homeRows[1] ? (
-                <section className={styles.sectionBlock}>
-                  <div className={styles.sectionLead}>
+              {personalizedRows.length ? (
+                personalizedRows.map((row) => (
+                  <section key={row.key} className={styles.section}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <p className={styles.topLabel}>{row.subtitle}</p>
+                        <h3>{row.title}</h3>
+                      </div>
+                      <button
+                        type="button"
+                        className={styles.linkButton}
+                        onClick={() => {
+                          setQuery(row.query);
+                          setActiveSection("Browse");
+                          void runSearch(row.query);
+                        }}
+                      >
+                        Open lane
+                      </button>
+                    </div>
+
+                    <div className={styles.cardRail}>
+                      {row.items.map((track) => (
+                        <article key={`${row.key}-${track.id}`} className={styles.mediaCard}>
+                          <button
+                            type="button"
+                            className={styles.mediaButton}
+                            onClick={() => playTrack(track)}
+                          >
+                            <div className={styles.mediaArt}>
+                              <Image
+                                src={track.thumbnailUrl}
+                                alt={track.title}
+                                fill
+                                sizes="220px"
+                                className={styles.coverArt}
+                              />
+                            </div>
+                            <div className={styles.mediaMeta}>
+                              <strong>{track.title}</strong>
+                              <span>{track.channelTitle}</span>
+                            </div>
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ))
+              ) : (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
                     <div>
-                      <h2 className={styles.sectionTitle}>{homeRows[1].title}</h2>
-                      <p className={styles.sectionMeta}>{homeRows[1].subtitle}</p>
+                      <p className={styles.topLabel}>Taste-based suggestions</p>
+                      <h3>Your home will tighten up after a few plays</h3>
                     </div>
                   </div>
-                  <div className={styles.posterRail}>
-                    {homeRows[1].items.map((track) => (
-                      <PosterCard
-                        key={`row-${track.id}`}
+                  <div className={styles.emptyPanel}>
+                    Search artists you already love, then like or save a few tracks.
+                    That gives SmbaMusic enough signal to build a closer home page.
+                  </div>
+                </section>
+              )}
+
+              {recentTracks.length ? (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.topLabel}>Recent</p>
+                      <h3>Played lately</h3>
+                    </div>
+                  </div>
+                  <div className={styles.listPanel}>
+                    {recentTracks.slice(0, 6).map((track) => (
+                      <TrackRow
+                        key={`recent-${track.id}`}
                         track={track}
+                        isSaved={savedIds.has(track.id)}
+                        isLiked={likedIds.has(track.id)}
                         onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
                       />
                     ))}
                   </div>
                 </section>
               ) : null}
-            </div>
+            </>
           ) : null}
 
-          {activeSection === "New" ? (
-            <div className={styles.contentStack}>
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
+          {activeSection === "Browse" ? (
+            <>
+              <section className={styles.chipSection}>
+                {browseScenes.map((scene) => (
+                  <button
+                    key={scene}
+                    type="button"
+                    className={styles.sceneChip}
+                    onClick={() => {
+                      setQuery(scene);
+                      void runSearch(scene);
+                    }}
+                  >
+                    {scene}
+                  </button>
+                ))}
+              </section>
+
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
                   <div>
-                    <h2 className={styles.sectionTitle}>New</h2>
-                    <p className={styles.sectionMeta}>Fresh search-driven picks</p>
+                    <p className={styles.topLabel}>Search results</p>
+                    <h3>Use search to shape your library</h3>
                   </div>
                 </div>
                 {error ? <p className={styles.error}>{error}</p> : null}
-                <div className={styles.editorialGrid}>
-                  {searchCards.slice(0, 2).map((track, index) => (
-                    <EditorialCard
-                      key={`editorial-${track.id}`}
-                      track={track}
-                      eyebrow={index === 0 ? "Just Updated" : "Featured Playlist"}
-                      onPlay={() => playTrack(track)}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
-                  <div>
-                    <h2 className={styles.sectionTitle}>Playlists We Love</h2>
-                    <p className={styles.sectionMeta}>Closer to the Apple Music shelf feel</p>
+                {browseCards.length ? (
+                  <div className={styles.listPanel}>
+                    {browseCards.map((track) => (
+                      <TrackRow
+                        key={`browse-${track.id}`}
+                        track={track}
+                        isSaved={savedIds.has(track.id)}
+                        isLiked={likedIds.has(track.id)}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
                   </div>
-                </div>
-                <div className={styles.posterRail}>
-                  {searchCards.slice(0, 6).map((track) => (
-                    <PosterCard
-                      key={`new-${track.id}`}
-                      track={track}
-                      onPlay={() => playTrack(track)}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              <section className={styles.sectionBlock}>
-                <div className={styles.chipRail}>
-                  {sceneSeeds.map((seed) => (
-                    <button
-                      key={seed}
-                      type="button"
-                      className={styles.sceneChip}
-                      onClick={() => {
-                        setQuery(seed);
-                        void runSearch(seed);
-                      }}
-                    >
-                      {seed}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            </div>
-          ) : null}
-
-          {activeSection === "Radio" ? (
-            <div className={styles.contentStack}>
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
-                  <div>
-                    <h2 className={styles.sectionTitle}>Radio</h2>
-                    <p className={styles.sectionMeta}>Stations built from what matters to you.</p>
+                ) : (
+                  <div className={styles.emptyPanel}>
+                    Search by artist, album mood, or scene and the results will show up
+                    here.
                   </div>
-                </div>
-                <div className={styles.radioGrid}>
-                  {(radioRows[0]?.items ?? personalizedRows.flatMap((row) => row.items)).slice(0, 4).map((track) => (
-                    <RadioCard
-                      key={`radio-${track.id}`}
-                      track={track}
-                      onPlay={() => playTrack(track)}
-                    />
-                  ))}
-                  {!personalizedRows.length ? (
-                    <div className={styles.emptyPanel}>
-                      Like or save more songs and your Radio page will tighten up around your taste.
-                    </div>
-                  ) : null}
-                </div>
+                )}
               </section>
-            </div>
+            </>
           ) : null}
 
           {activeSection === "Library" ? (
-            <div className={styles.contentStack}>
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
-                  <div>
-                    <h2 className={styles.sectionTitle}>Library</h2>
-                    <p className={styles.sectionMeta}>Saved, liked, and recently played.</p>
-                  </div>
-                </div>
-                <div className={styles.libraryStats}>
-                  <div className={styles.statTile}>
-                    <strong>{savedTracks.length}</strong>
-                    <span>Saved</span>
-                  </div>
-                  <div className={styles.statTile}>
-                    <strong>{likedTracks.length}</strong>
-                    <span>Liked</span>
-                  </div>
-                  <div className={styles.statTile}>
-                    <strong>{recentTracks.length}</strong>
-                    <span>Recent</span>
-                  </div>
-                </div>
+            <>
+              <section className={styles.libraryGrid}>
+                <article className={styles.libraryTile}>
+                  <span className={styles.topLabel}>Saved</span>
+                  <strong>{savedTracks.length}</strong>
+                  <p>Tracks you chose to keep close.</p>
+                </article>
+                <article className={styles.libraryTile}>
+                  <span className={styles.topLabel}>Liked</span>
+                  <strong>{likedTracks.length}</strong>
+                  <p>Favorites that shape your recommendations.</p>
+                </article>
+                <article className={styles.libraryTile}>
+                  <span className={styles.topLabel}>Recent</span>
+                  <strong>{recentTracks.length}</strong>
+                  <p>Your last sessions, ready to reopen.</p>
+                </article>
               </section>
 
-              <section className={styles.sectionBlock}>
-                <div className={styles.listPanel}>
-                  {savedTracks.map((track) => (
-                    <TrackRow
-                      key={`saved-${track.id}`}
-                      track={track}
-                      isSaved={true}
-                      isLiked={likedIds.has(track.id)}
-                      onPlay={() => playTrack(track)}
-                      onSave={() => toggleSaved(track)}
-                      onLike={() => toggleLiked(track)}
-                      onQueue={() => addToQueue(track)}
-                    />
-                  ))}
-                  {!savedTracks.length ? (
-                    <div className={styles.emptyPanel}>
-                      Save a few songs from Search or Radio and they’ll appear here.
-                    </div>
-                  ) : null}
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Saved tracks</p>
+                    <h3>Main library</h3>
+                  </div>
                 </div>
+                {savedTracks.length ? (
+                  <div className={styles.listPanel}>
+                    {savedTracks.map((track) => (
+                      <TrackRow
+                        key={`saved-${track.id}`}
+                        track={track}
+                        isSaved={true}
+                        isLiked={likedIds.has(track.id)}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyPanel}>
+                    Your saved tracks will live here once you start building a library.
+                  </div>
+                )}
               </section>
-            </div>
+
+              <section className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Liked tracks</p>
+                    <h3>Favorites</h3>
+                  </div>
+                </div>
+                {likedTracks.length ? (
+                  <div className={styles.listPanel}>
+                    {likedTracks.map((track) => (
+                      <TrackRow
+                        key={`liked-${track.id}`}
+                        track={track}
+                        isSaved={savedIds.has(track.id)}
+                        isLiked={true}
+                        onPlay={() => playTrack(track)}
+                        onSave={() => toggleSaved(track)}
+                        onLike={() => toggleLiked(track)}
+                        onQueue={() => addToQueue(track)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyPanel}>
+                    Likes stay separate now, and they directly shape the home screen.
+                  </div>
+                )}
+              </section>
+            </>
           ) : null}
 
           {activeSection === "Settings" ? (
-            <div className={styles.contentStack}>
-              <section className={styles.sectionBlock}>
-                <div className={styles.sectionLead}>
+            <section className={styles.settingsGrid}>
+              <article className={styles.settingsCard}>
+                <div className={styles.sectionHeader}>
                   <div>
-                    <h2 className={styles.sectionTitle}>Settings</h2>
-                    <p className={styles.sectionMeta}>Light, dark, and playback behavior.</p>
+                    <p className={styles.topLabel}>Appearance</p>
+                    <h3>Keep it clean</h3>
                   </div>
                 </div>
-                <div className={styles.settingsGrid}>
-                  <div className={styles.settingsCard}>
-                    <h3 className={styles.settingsTitle}>Appearance</h3>
-                    <div className={styles.optionGrid}>
-                      {(["system", "light", "dark"] as AppearanceMode[]).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          className={`${styles.optionCard} ${
-                            settings.appearance === mode ? styles.optionCardActive : ""
-                          }`}
-                          onClick={() => updateSetting("appearance", mode)}
-                        >
-                          <strong>{mode[0].toUpperCase() + mode.slice(1)}</strong>
-                          <span>
-                            {mode === "system"
-                              ? "Matches your device"
-                              : mode === "light"
-                                ? "Apple-style bright UI"
-                                : "Darker nighttime chrome"}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div className={styles.optionGrid}>
+                  {(["system", "light", "dark"] as AppearanceMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={`${styles.optionCard} ${
+                        settings.appearance === mode ? styles.optionCardActive : ""
+                      }`}
+                      onClick={() => updateSetting("appearance", mode)}
+                    >
+                      <strong>{mode[0].toUpperCase() + mode.slice(1)}</strong>
+                      <span>
+                        {mode === "system"
+                          ? "Matches your device"
+                          : mode === "light"
+                            ? "Bright and airy"
+                            : "Dark and focused"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </article>
 
-                  <div className={styles.settingsCard}>
-                    <h3 className={styles.settingsTitle}>Playback</h3>
-                    <div className={styles.settingList}>
-                      <button
-                        type="button"
-                        className={styles.settingRow}
-                        onClick={() => updateSetting("autoplayNext", !settings.autoplayNext)}
-                      >
-                        <span>
-                          <strong>Autoplay next track</strong>
-                          <span>Continue through your queue when a song ends.</span>
-                        </span>
-                        <span>{settings.autoplayNext ? "On" : "Off"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.settingRow}
-                        onClick={() => updateSetting("reducedMotion", !settings.reducedMotion)}
-                      >
-                        <span>
-                          <strong>Reduced motion</strong>
-                          <span>Dial back transitions across the app.</span>
-                        </span>
-                        <span>{settings.reducedMotion ? "On" : "Off"}</span>
-                      </button>
-                    </div>
+              <article className={styles.settingsCard}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Playback</p>
+                    <h3>Music controls</h3>
                   </div>
                 </div>
-              </section>
-            </div>
+                <div className={styles.settingList}>
+                  <button
+                    type="button"
+                    className={styles.settingRow}
+                    onClick={() =>
+                      updateSetting("autoplayNext", !settings.autoplayNext)
+                    }
+                  >
+                    <span>
+                      <strong>Autoplay next track</strong>
+                      <span>Move through your queue when a song ends.</span>
+                    </span>
+                    <span>{settings.autoplayNext ? "On" : "Off"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.settingRow}
+                    onClick={() =>
+                      updateSetting("reducedMotion", !settings.reducedMotion)
+                    }
+                  >
+                    <span>
+                      <strong>Reduced motion</strong>
+                      <span>Dial back transitions across the app.</span>
+                    </span>
+                    <span>{settings.reducedMotion ? "On" : "Off"}</span>
+                  </button>
+                </div>
+              </article>
+            </section>
           ) : null}
         </section>
       </div>
 
-      <nav className={styles.mobileTabBar}>
-        {mobileTabs.map((item) => (
-          <button
-            key={item}
-            type="button"
-            className={`${styles.mobileTab} ${
-              activeSection === item ? styles.mobileTabActive : ""
-            }`}
-            onClick={() => setActiveSection(item)}
-          >
-            {item}
-          </button>
-        ))}
-      </nav>
-
       {isPlayerVisible && currentVideo ? (
         <section className={styles.playerBar}>
-          <div className={styles.playerMain}>
+          <div className={styles.playerCurrent}>
             <button
               type="button"
-              className={styles.playerArtButton}
+              className={styles.playerCoverButton}
               onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}
             >
-              <div className={styles.playerArt}>
+              <div className={styles.playerCover}>
                 <Image
                   src={currentVideo.thumbnailUrl}
                   alt={currentVideo.title}
                   fill
-                  sizes="60px"
+                  sizes="72px"
                   className={styles.coverArt}
                 />
               </div>
             </button>
-            <div className={styles.playerMeta}>
-              <strong>{cleanTitle(currentVideo.title)}</strong>
-              <span>{extractArtist(currentVideo)}</span>
+            <div className={styles.playerCopy}>
+              <strong>{currentVideo.title}</strong>
+              <span>{currentVideo.channelTitle}</span>
             </div>
-            <div className={styles.playerActions}>
-              <button type="button" className={styles.transportButton} onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}>
-                Play
+          </div>
+
+          <div className={styles.playerMiddle}>
+            <div className={styles.playerButtons}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}
+              >
+                Playing
               </button>
-              <button type="button" className={styles.transportButton} onClick={playNext}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={playNext}
+                disabled={!queuePreview.length}
+              >
                 Next
               </button>
             </div>
+            <div className={styles.playerFrame}>
+              <div id="youtube-player" className={styles.playerSlot} />
+            </div>
           </div>
 
-          <div className={styles.playerInlineFrame}>
-            <div id="youtube-player" className={styles.playerSlot} />
-          </div>
-
-          <div className={styles.queueStrip}>
-            <div className={styles.queueStripHeader}>
+          <div className={styles.playerQueueArea}>
+            <div className={styles.playerQueueHeader}>
               <span>Up Next</span>
-              <div className={styles.queueStripControls}>
-                <button type="button" className={styles.queueArrow} onClick={() => scrollQueue("left")}>
+              <div className={styles.playerQueueActions}>
+                <button
+                  type="button"
+                  className={styles.queueArrow}
+                  onClick={() => scrollQueue("left")}
+                >
                   Prev
                 </button>
-                <button type="button" className={styles.queueArrow} onClick={() => scrollQueue("right")}>
+                <button
+                  type="button"
+                  className={styles.queueArrow}
+                  onClick={() => scrollQueue("right")}
+                >
                   Next
                 </button>
-                <button type="button" className={styles.queueArrow} onClick={closePlayer}>
+                <button
+                  type="button"
+                  className={styles.queueArrow}
+                  onClick={closePlayer}
+                >
                   Close
                 </button>
               </div>
             </div>
-            <div ref={queueScrollerRef} className={styles.queueScroller}>
+            <div ref={queueScrollerRef} className={styles.playerQueueScroller}>
               {queuePreview.length ? (
                 queuePreview.map((track) => (
                   <button
-                    key={`next-${track.id}`}
+                    key={`up-next-${track.id}`}
                     type="button"
-                    className={styles.queueCard}
+                    className={styles.upNextCard}
                     onClick={() => playTrack(track, { autoplay: true, addToQueue: false })}
                   >
-                    <div className={styles.queueCardThumb}>
+                    <div className={styles.upNextThumb}>
                       <Image
                         src={track.thumbnailUrl}
                         alt={track.title}
                         fill
-                        sizes="72px"
+                        sizes="96px"
                         className={styles.coverArt}
                       />
                     </div>
-                    <div className={styles.queueCardCopy}>
-                      <strong>{cleanTitle(track.title)}</strong>
-                      <span>{extractArtist(track)}</span>
+                    <div className={styles.upNextCopy}>
+                      <strong>{track.title}</strong>
+                      <span>{track.channelTitle}</span>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className={styles.queueEmpty}>Queue another track to swipe through what’s next.</div>
+                <div className={styles.upNextEmpty}>
+                  Swipe here on mobile once you queue another track.
+                </div>
               )}
             </div>
           </div>
         </section>
       ) : null}
     </main>
-  );
-}
-
-type FeatureCardProps = {
-  track: VideoItem;
-  onPlay: () => void;
-};
-
-function FeatureCard({ track, onPlay }: FeatureCardProps) {
-  return (
-    <button type="button" className={styles.featureCard} onClick={onPlay}>
-      <div className={styles.featureArt}>
-        <Image
-          src={track.thumbnailUrl}
-          alt={track.title}
-          fill
-          sizes="480px"
-          className={styles.coverArt}
-        />
-      </div>
-      <div className={styles.featureCopy}>
-        <strong>{cleanTitle(track.title)}</strong>
-        <span>{extractArtist(track)}</span>
-      </div>
-    </button>
-  );
-}
-
-type PosterCardProps = FeatureCardProps;
-
-function PosterCard({ track, onPlay }: PosterCardProps) {
-  return (
-    <button type="button" className={styles.posterCard} onClick={onPlay}>
-      <div className={styles.posterArt}>
-        <Image
-          src={track.thumbnailUrl}
-          alt={track.title}
-          fill
-          sizes="220px"
-          className={styles.coverArt}
-        />
-      </div>
-      <div className={styles.posterCopy}>
-        <strong>{cleanTitle(track.title)}</strong>
-        <span>{extractArtist(track)}</span>
-      </div>
-    </button>
-  );
-}
-
-type MiniCardProps = FeatureCardProps;
-
-function MiniCard({ track, onPlay }: MiniCardProps) {
-  return (
-    <button type="button" className={styles.miniCard} onClick={onPlay}>
-      <div className={styles.miniThumb}>
-        <Image
-          src={track.thumbnailUrl}
-          alt={track.title}
-          fill
-          sizes="120px"
-          className={styles.coverArt}
-        />
-      </div>
-      <div className={styles.miniCopy}>
-        <strong>{cleanTitle(track.title)}</strong>
-        <span>{extractArtist(track)}</span>
-      </div>
-    </button>
-  );
-}
-
-type EditorialCardProps = {
-  track: VideoItem;
-  eyebrow: string;
-  onPlay: () => void;
-};
-
-function EditorialCard({ track, eyebrow, onPlay }: EditorialCardProps) {
-  return (
-    <button type="button" className={styles.editorialCard} onClick={onPlay}>
-      <div className={styles.editorialHeader}>
-        <span>{eyebrow}</span>
-        <strong>{cleanTitle(track.title)}</strong>
-        <small>{extractArtist(track)}</small>
-      </div>
-      <div className={styles.editorialArt}>
-        <Image
-          src={track.thumbnailUrl}
-          alt={track.title}
-          fill
-          sizes="620px"
-          className={styles.coverArt}
-        />
-      </div>
-    </button>
-  );
-}
-
-type RadioCardProps = FeatureCardProps;
-
-function RadioCard({ track, onPlay }: RadioCardProps) {
-  return (
-    <button type="button" className={styles.radioCard} onClick={onPlay}>
-      <div className={styles.radioArt}>
-        <Image
-          src={track.thumbnailUrl}
-          alt={track.title}
-          fill
-          sizes="320px"
-          className={styles.coverArt}
-        />
-      </div>
-      <div className={styles.radioCopy}>
-        <strong>{extractArtist(track)} Radio</strong>
-        <span>{cleanTitle(track.title)}</span>
-      </div>
-    </button>
   );
 }
 
@@ -1118,15 +1106,16 @@ function TrackRow({
             src={track.thumbnailUrl}
             alt={track.title}
             fill
-            sizes="120px"
+            sizes="96px"
             className={styles.coverArt}
           />
         </div>
         <div className={styles.trackCopy}>
-          <strong>{cleanTitle(track.title)}</strong>
-          <span>{extractArtist(track)}</span>
+          <strong>{track.title}</strong>
+          <span>{track.channelTitle}</span>
         </div>
       </button>
+
       <div className={styles.trackActions}>
         <button type="button" className={styles.secondaryButton} onClick={onQueue}>
           Queue
