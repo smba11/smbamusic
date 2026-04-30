@@ -165,7 +165,7 @@ export function MusicShell() {
     () => queue.filter((track) => track.id !== currentVideo?.id),
     [currentVideo?.id, queue]
   );
-  const heroTrack = currentVideo ?? recentTracks[0] ?? savedTracks[0] ?? likedTracks[0] ?? null;
+  const leadTrack = currentVideo ?? recentTracks[0] ?? savedTracks[0] ?? likedTracks[0] ?? null;
 
   useEffect(() => {
     const script = document.getElementById("youtube-iframe-api");
@@ -608,32 +608,28 @@ export function MusicShell() {
 
           {activeSection === "Listen Now" ? (
             <>
-              <section className={styles.hero}>
-                <div className={styles.heroCopy}>
-                  <h3>
-                    {heroTrack
-                      ? `Built around ${extractArtist(heroTrack)}`
-                      : "A cleaner player that learns from what you keep"}
-                  </h3>
+              <section className={styles.overviewGrid}>
+                <div className={`${styles.overviewCard} ${styles.overviewLead}`}>
+                  <p className={styles.topLabel}>For You</p>
+                  <h3>Listen Now should feel like your whole music space.</h3>
                   <p>
-                    {heroTrack
-                      ? "Your home screen now leans on what you actually play, like, and save instead of repeating generic filler."
-                      : "Search artists you love, save a few tracks, and SmbaMusic will start shaping your home around your taste."}
+                    Less filler, better artwork, and tighter suggestions based on what
+                    you actually keep, like, and replay.
                   </p>
                   <div className={styles.heroActions}>
                     <button
                       type="button"
                       className={styles.primaryButton}
                       onClick={() => {
-                        if (heroTrack) {
-                          playTrack(heroTrack);
+                        if (leadTrack) {
+                          playTrack(leadTrack);
                           return;
                         }
 
                         setActiveSection("Browse");
                       }}
                     >
-                      {heroTrack ? "Play current lane" : "Start with search"}
+                      {leadTrack ? "Resume listening" : "Start with search"}
                     </button>
                     <button
                       type="button"
@@ -645,32 +641,69 @@ export function MusicShell() {
                   </div>
                 </div>
 
-                <div className={styles.heroCard}>
-                  {heroTrack ? (
-                    <>
-                      <div className={styles.heroArt}>
-                        <Image
-                          src={heroTrack.thumbnailUrl}
-                          alt={heroTrack.title}
-                          fill
-                          sizes="420px"
-                          className={styles.coverArt}
+                <div className={styles.overviewCard}>
+                  {leadTrack ? (
+                    <button
+                      type="button"
+                      className={styles.continueCard}
+                      onClick={() => playTrack(leadTrack)}
+                    >
+                      <div className={styles.continueArt}>
+                        <ArtworkImage
+                          src={leadTrack.thumbnailUrl}
+                          alt={leadTrack.title}
+                          sizes="(max-width: 900px) 100vw, 320px"
                         />
                       </div>
-                      <div className={styles.heroMeta}>
-                        <strong>{heroTrack.title}</strong>
-                        <span>{heroTrack.channelTitle}</span>
+                      <div className={styles.continueCopy}>
+                        <span className={styles.topLabel}>Continue Listening</span>
+                        <strong>{leadTrack.title}</strong>
+                        <span>{leadTrack.channelTitle}</span>
                       </div>
-                    </>
+                    </button>
                   ) : (
                     <div className={styles.onboardingCard}>
-                      <strong>No random homepage rails.</strong>
+                      <strong>No single seed track taking over the page.</strong>
                       <span>
-                        Your suggestions will get better as soon as you search, save,
-                        and like a few artists.
+                        Search artists you love and SmbaMusic will start building the
+                        home screen around that taste.
                       </span>
                     </div>
                   )}
+                </div>
+
+                <div className={styles.overviewCard}>
+                  <span className={styles.topLabel}>Your taste</span>
+                  <div className={styles.tasteStats}>
+                    <div>
+                      <strong>{savedTracks.length}</strong>
+                      <span>Saved</span>
+                    </div>
+                    <div>
+                      <strong>{likedTracks.length}</strong>
+                      <span>Liked</span>
+                    </div>
+                    <div>
+                      <strong>{recentTracks.length}</strong>
+                      <span>Recent</span>
+                    </div>
+                  </div>
+                  <div className={styles.pourIdeas}>
+                    {browseScenes.slice(0, 4).map((scene) => (
+                      <button
+                        key={scene}
+                        type="button"
+                        className={styles.sceneChip}
+                        onClick={() => {
+                          setQuery(scene);
+                          void runSearch(scene);
+                          setActiveSection("Browse");
+                        }}
+                      >
+                        {scene}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </section>
 
@@ -704,12 +737,10 @@ export function MusicShell() {
                             onClick={() => playTrack(track)}
                           >
                             <div className={styles.mediaArt}>
-                              <Image
+                              <ArtworkImage
                                 src={track.thumbnailUrl}
                                 alt={track.title}
-                                fill
-                                sizes="220px"
-                                className={styles.coverArt}
+                                sizes="(max-width: 900px) 100vw, 360px"
                               />
                             </div>
                             <div className={styles.mediaMeta}>
@@ -977,12 +1008,10 @@ export function MusicShell() {
               onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}
             >
               <div className={styles.playerCover}>
-                <Image
+                <ArtworkImage
                   src={currentVideo.thumbnailUrl}
                   alt={currentVideo.title}
-                  fill
                   sizes="72px"
-                  className={styles.coverArt}
                 />
               </div>
             </button>
@@ -1052,12 +1081,10 @@ export function MusicShell() {
                     onClick={() => playTrack(track, { autoplay: true, addToQueue: false })}
                   >
                     <div className={styles.upNextThumb}>
-                      <Image
+                      <ArtworkImage
                         src={track.thumbnailUrl}
                         alt={track.title}
-                        fill
                         sizes="96px"
-                        className={styles.coverArt}
                       />
                     </div>
                     <div className={styles.upNextCopy}>
@@ -1076,6 +1103,26 @@ export function MusicShell() {
         </section>
       ) : null}
     </main>
+  );
+}
+
+type ArtworkImageProps = {
+  src: string;
+  alt: string;
+  sizes: string;
+};
+
+function ArtworkImage({ src, alt, sizes }: ArtworkImageProps) {
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      fill
+      sizes={sizes}
+      quality={100}
+      unoptimized
+      className={styles.coverArt}
+    />
   );
 }
 
@@ -1102,12 +1149,10 @@ function TrackRow({
     <article className={styles.trackRow}>
       <button type="button" className={styles.trackMain} onClick={onPlay}>
         <div className={styles.trackThumb}>
-          <Image
+          <ArtworkImage
             src={track.thumbnailUrl}
             alt={track.title}
-            fill
-            sizes="96px"
-            className={styles.coverArt}
+            sizes="(max-width: 900px) 100vw, 160px"
           />
         </div>
         <div className={styles.trackCopy}>

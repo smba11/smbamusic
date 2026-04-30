@@ -288,6 +288,94 @@
   gap: 10px;
 }
 
+.overviewGrid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 0.9fr;
+  gap: 18px;
+}
+
+.overviewCard {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.overviewLead h3 {
+  margin: 0;
+  font-size: clamp(2.2rem, 3vw, 3.6rem);
+  line-height: 0.96;
+  letter-spacing: -0.07em;
+  max-width: 10ch;
+}
+
+.overviewLead p {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.continueCard {
+  display: grid;
+  gap: 14px;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.continueArt {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1.08 / 1;
+  border-radius: 22px;
+  background: var(--surface-alt);
+}
+
+.continueCopy {
+  display: grid;
+  gap: 4px;
+}
+
+.continueCopy span:last-child {
+  color: var(--muted);
+}
+
+.tasteStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tasteStats div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 12px;
+  border-radius: 18px;
+  background: var(--surface-strong);
+}
+
+.tasteStats strong {
+  font-size: 2rem;
+  letter-spacing: -0.06em;
+}
+
+.tasteStats span {
+  color: var(--muted);
+}
+
+.pourIdeas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .heroCard {
   display: grid;
   gap: 14px;
@@ -667,6 +755,7 @@
     grid-template-columns: 240px minmax(0, 1fr);
   }
 
+  .overviewGrid,
   .cardRail,
   .libraryGrid,
   .optionGrid {
@@ -717,6 +806,7 @@
   }
 
   .hero,
+  .overviewGrid,
   .cardRail,
   .libraryGrid,
   .optionGrid {

@@ -19,6 +19,17 @@ type YouTubeSearchResponse = {
   }>;
 };
 
+function getThumbnailUrl(videoId: string, fallback?: string) {
+  const candidates = [
+    `https://i.ytimg.com/vi/${videoId}/hq720.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/sddefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    fallback ?? ""
+  ];
+
+  return candidates.find(Boolean) ?? "";
+}
+
 export async function searchYouTubeVideos(query: string): Promise<VideoItem[]> {
   const apiKey = process.env.YOUTUBE_API_KEY;
 
@@ -57,18 +68,19 @@ export async function searchYouTubeVideos(query: string): Promise<VideoItem[]> {
         return null;
       }
 
-      return {
-        id: videoId,
-        title: snippet.title,
-        channelTitle: snippet.channelTitle ?? "Unknown channel",
-        description: snippet.description ?? "",
-        thumbnailUrl:
-          snippet.thumbnails?.high?.url ??
-          snippet.thumbnails?.medium?.url ??
-          snippet.thumbnails?.default?.url ??
-          "",
-        publishedAt: snippet.publishedAt ?? ""
-      } satisfies VideoItem;
+        return {
+          id: videoId,
+          title: snippet.title,
+          channelTitle: snippet.channelTitle ?? "Unknown channel",
+          description: snippet.description ?? "",
+          thumbnailUrl: getThumbnailUrl(
+            videoId,
+            snippet.thumbnails?.high?.url ??
+              snippet.thumbnails?.medium?.url ??
+              snippet.thumbnails?.default?.url
+          ),
+          publishedAt: snippet.publishedAt ?? ""
+        } satisfies VideoItem;
     })
     .filter((item): item is VideoItem => item !== null);
 }
