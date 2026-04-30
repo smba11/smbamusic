@@ -42,6 +42,11 @@ type AppSettings = {
   autoplayNext: boolean;
   reducedMotion: boolean;
 };
+type Playlist = {
+  id: string;
+  name: string;
+  tracks: VideoItem[];
+};
 type PersonalizedRow = {
   key: string;
   title: string;
@@ -54,6 +59,7 @@ const navItems: SectionName[] = ["Listen Now", "Browse", "Library", "Settings"];
 const SAVED_TRACKS_KEY = "smbamusic-saved-tracks";
 const LIKED_TRACKS_KEY = "smbamusic-liked-tracks";
 const RECENT_TRACKS_KEY = "smbamusic-recent-tracks";
+const PLAYLISTS_KEY = "smbamusic-playlists";
 const SETTINGS_KEY = "smbamusic-settings-v2";
 
 const browseScenes = [
@@ -139,8 +145,12 @@ export function MusicShell() {
   const [savedTracks, setSavedTracks] = useState<VideoItem[]>([]);
   const [likedTracks, setLikedTracks] = useState<VideoItem[]>([]);
   const [recentTracks, setRecentTracks] = useState<VideoItem[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
   const [queue, setQueue] = useState<VideoItem[]>([]);
   const [currentVideo, setCurrentVideo] = useState<VideoItem | null>(null);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
   const [isPlayerVisible, setIsPlayerVisible] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isLibraryReady, setIsLibraryReady] = useState(false);
@@ -148,6 +158,7 @@ export function MusicShell() {
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [personalizedRows, setPersonalizedRows] = useState<PersonalizedRow[]>([]);
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
 
   const playerRef = useRef<YouTubePlayer | null>(null);
   const searchRequestIdRef = useRef(0);
@@ -161,10 +172,26 @@ export function MusicShell() {
     const source = currentVideo ? [currentVideo, ...recentTracks] : recentTracks;
     return mergeTracks(likedTracks, savedTracks, source).slice(0, 6);
   }, [currentVideo, likedTracks, recentTracks, savedTracks]);
-  const queuePreview = useMemo(
-    () => queue.filter((track) => track.id !== currentVideo?.id),
-    [currentVideo?.id, queue]
+  const previousQueue = useMemo(
+    () => (currentQueueIndex > 0 ? queue.slice(0, currentQueueIndex) : []),
+    [currentQueueIndex, queue]
   );
+  const nextQueue = useMemo(
+    () =>
+      currentQueueIndex >= 0 ? queue.slice(currentQueueIndex + 1) : queue.slice(0),
+    [currentQueueIndex, queue]
+  );
+  const activePlaylist = useMemo(
+    () => playlists.find((playlist) => playlist.id === activePlaylistId) ?? null,
+    [activePlaylistId, playlists]
+  );
+  const artistSuggestions = useMemo(() => {
+    const artists = results
+      .map((track) => extractArtist(track))
+      .filter((artist, index, all) => all.indexOf(artist) === index);
+
+    return artists.slice(0, 8);
+  }, [results]);
   const leadTrack = currentVideo ?? recentTracks[0] ?? savedTracks[0] ?? likedTracks[0] ?? null;
 
   useEffect(() => {
@@ -197,6 +224,7 @@ export function MusicShell() {
       const savedValue = window.localStorage.getItem(SAVED_TRACKS_KEY);
       const likedValue = window.localStorage.getItem(LIKED_TRACKS_KEY);
       const recentValue = window.localStorage.getItem(RECENT_TRACKS_KEY);
+      const playlistsValue = window.localStorage.getItem(PLAYLISTS_KEY);
       const settingsValue = window.localStorage.getItem(SETTINGS_KEY);
 
       if (savedValue) {
@@ -214,6 +242,14 @@ export function MusicShell() {
         setRecentTracks(JSON.parse(recentValue) as VideoItem[]);
       }
 
+      if (playlistsValue) {
+        const parsedPlaylists = JSON.parse(playlistsValue) as Playlist[];
+        setPlaylists(parsedPlaylists);
+        if (parsedPlaylists.length) {
+          setActivePlaylistId(parsedPlaylists[0].id);
+        }
+      }
+
       if (settingsValue) {
         setSettings({
           ...defaultSettings,
@@ -224,6 +260,7 @@ export function MusicShell() {
       setSavedTracks([]);
       setLikedTracks([]);
       setRecentTracks([]);
+      setPlaylists([]);
       setSettings(defaultSettings);
     } finally {
       setIsLibraryReady(true);
@@ -253,6 +290,14 @@ export function MusicShell() {
 
     window.localStorage.setItem(RECENT_TRACKS_KEY, JSON.stringify(recentTracks));
   }, [isLibraryReady, recentTracks]);
+
+  useEffect(() => {
+    if (!isLibraryReady) {
+      return;
+    }
+
+    window.localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists));
+  }, [isLibraryReady, playlists]);
 
   useEffect(() => {
     if (!isLibraryReady) {
@@ -311,9 +356,9 @@ export function MusicShell() {
             if (
               event.data === window.YT?.PlayerState?.ENDED &&
               settings.autoplayNext &&
-              queuePreview.length
+              nextQueue.length
             ) {
-              playTrack(queuePreview[0], { autoplay: true, addToQueue: false });
+              playNext();
             }
           }
         }
@@ -333,7 +378,7 @@ export function MusicShell() {
     currentVideo,
     isPlayerVisible,
     isYouTubeReady,
-    queuePreview,
+    nextQueue,
     settings.autoplayNext
   ]);
 
@@ -421,6 +466,7 @@ export function MusicShell() {
   async function handleSearch(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setActiveSection("Browse");
+    setSelectedArtist(null);
     await runSearch(query);
   }
 
@@ -436,15 +482,18 @@ export function MusicShell() {
       return next.slice(0, 12);
     });
 
-    if (options?.addToQueue !== false) {
-      setQueue((current) => {
-        if (current.some((item) => item.id === video.id)) {
-          return current;
-        }
+    setQueue((current) => {
+      let nextQueueState = current;
+      let nextIndex = current.findIndex((item) => item.id === video.id);
 
-        return current.length ? [...current, video] : [video];
-      });
-    }
+      if (nextIndex === -1) {
+        nextQueueState = current.length ? [...current, video] : [video];
+        nextIndex = nextQueueState.length - 1;
+      }
+
+      setCurrentQueueIndex(nextIndex);
+      return nextQueueState;
+    });
   }
 
   function addToQueue(video: VideoItem) {
@@ -458,11 +507,22 @@ export function MusicShell() {
   }
 
   function playNext() {
-    if (!queuePreview.length) {
+    if (!nextQueue.length) {
       return;
     }
 
-    playTrack(queuePreview[0], { autoplay: true, addToQueue: false });
+    playTrack(nextQueue[0], { autoplay: true, addToQueue: false });
+  }
+
+  function playPrevious() {
+    if (!previousQueue.length) {
+      return;
+    }
+
+    playTrack(previousQueue[previousQueue.length - 1], {
+      autoplay: true,
+      addToQueue: false
+    });
   }
 
   function toggleSaved(video: VideoItem) {
@@ -496,6 +556,56 @@ export function MusicShell() {
       ...current,
       [key]: value
     }));
+  }
+
+  function createPlaylist() {
+    const name = newPlaylistName.trim();
+
+    if (!name) {
+      return;
+    }
+
+    const nextPlaylist: Playlist = {
+      id: `playlist-${Date.now()}`,
+      name,
+      tracks: []
+    };
+
+    setPlaylists((current) => [nextPlaylist, ...current]);
+    setActivePlaylistId(nextPlaylist.id);
+    setNewPlaylistName("");
+  }
+
+  function addTrackToPlaylist(video: VideoItem, playlistId?: string | null) {
+    const targetId = playlistId ?? activePlaylistId;
+
+    if (!targetId) {
+      return;
+    }
+
+    setPlaylists((current) =>
+      current.map((playlist) => {
+        if (playlist.id !== targetId) {
+          return playlist;
+        }
+
+        if (playlist.tracks.some((track) => track.id === video.id)) {
+          return playlist;
+        }
+
+        return {
+          ...playlist,
+          tracks: [video, ...playlist.tracks]
+        };
+      })
+    );
+  }
+
+  async function openArtist(artist: string) {
+    setSelectedArtist(artist);
+    setQuery(artist);
+    setActiveSection("Browse");
+    await runSearch(`${artist} songs`);
   }
 
   function scrollQueue(direction: "left" | "right") {
@@ -557,10 +667,46 @@ export function MusicShell() {
           </section>
 
           <section className={styles.sidebarPanel}>
-            <span className={styles.sidebarLabel}>Current queue</span>
-            {queuePreview.length ? (
+            <span className={styles.sidebarLabel}>Playlists</span>
+            <div className={styles.playlistComposer}>
+              <input
+                value={newPlaylistName}
+                onChange={(event) => setNewPlaylistName(event.target.value)}
+                placeholder="New playlist"
+                className={styles.playlistInput}
+              />
+              <button type="button" className={styles.secondaryButton} onClick={createPlaylist}>
+                Create
+              </button>
+            </div>
+            {playlists.length ? (
+              <div className={styles.playlistList}>
+                {playlists.map((playlist) => (
+                  <button
+                    key={playlist.id}
+                    type="button"
+                    className={`${styles.playlistCard} ${
+                      activePlaylistId === playlist.id ? styles.playlistCardActive : ""
+                    }`}
+                    onClick={() => setActivePlaylistId(playlist.id)}
+                  >
+                    <strong>{playlist.name}</strong>
+                    <span>{playlist.tracks.length} songs</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyText}>
+                Make a playlist and start adding songs from Browse or Library.
+              </p>
+            )}
+          </section>
+
+          <section className={styles.sidebarPanel}>
+            <span className={styles.sidebarLabel}>Up next</span>
+            {nextQueue.length ? (
               <div className={styles.compactList}>
-                {queuePreview.slice(0, 4).map((track) => (
+                {nextQueue.slice(0, 4).map((track) => (
                   <button
                     key={`queue-${track.id}`}
                     type="button"
@@ -787,6 +933,8 @@ export function MusicShell() {
                         onSave={() => toggleSaved(track)}
                         onLike={() => toggleLiked(track)}
                         onQueue={() => addToQueue(track)}
+                        onPlaylist={() => addTrackToPlaylist(track)}
+                        playlistDisabled={!activePlaylist}
                       />
                     ))}
                   </div>
@@ -813,11 +961,40 @@ export function MusicShell() {
                 ))}
               </section>
 
+              {artistSuggestions.length ? (
+                <section className={styles.artistSection}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.topLabel}>Artists</p>
+                      <h3>Open an artist lane</h3>
+                    </div>
+                  </div>
+                  <div className={styles.artistChipRow}>
+                    {artistSuggestions.map((artist) => (
+                      <button
+                        key={artist}
+                        type="button"
+                        className={`${styles.artistChip} ${
+                          selectedArtist === artist ? styles.artistChipActive : ""
+                        }`}
+                        onClick={() => void openArtist(artist)}
+                      >
+                        {artist}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
               <section className={styles.section}>
                 <div className={styles.sectionHeader}>
                   <div>
                     <p className={styles.topLabel}>Search results</p>
-                    <h3>Use search to shape your library</h3>
+                    <h3>
+                      {selectedArtist
+                        ? `${selectedArtist} songs`
+                        : "Use search to shape your library"}
+                    </h3>
                   </div>
                 </div>
                 {error ? <p className={styles.error}>{error}</p> : null}
@@ -833,6 +1010,8 @@ export function MusicShell() {
                         onSave={() => toggleSaved(track)}
                         onLike={() => toggleLiked(track)}
                         onQueue={() => addToQueue(track)}
+                        onPlaylist={() => addTrackToPlaylist(track)}
+                        playlistDisabled={!activePlaylist}
                       />
                     ))}
                   </div>
@@ -885,6 +1064,8 @@ export function MusicShell() {
                         onSave={() => toggleSaved(track)}
                         onLike={() => toggleLiked(track)}
                         onQueue={() => addToQueue(track)}
+                        onPlaylist={() => addTrackToPlaylist(track)}
+                        playlistDisabled={!activePlaylist}
                       />
                     ))}
                   </div>
@@ -914,6 +1095,8 @@ export function MusicShell() {
                         onSave={() => toggleSaved(track)}
                         onLike={() => toggleLiked(track)}
                         onQueue={() => addToQueue(track)}
+                        onPlaylist={() => addTrackToPlaylist(track)}
+                        playlistDisabled={!activePlaylist}
                       />
                     ))}
                   </div>
@@ -923,6 +1106,39 @@ export function MusicShell() {
                   </div>
                 )}
               </section>
+
+              {activePlaylist ? (
+                <section className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <p className={styles.topLabel}>Playlist</p>
+                      <h3>{activePlaylist.name}</h3>
+                    </div>
+                  </div>
+                  {activePlaylist.tracks.length ? (
+                    <div className={styles.listPanel}>
+                      {activePlaylist.tracks.map((track) => (
+                        <TrackRow
+                          key={`playlist-${activePlaylist.id}-${track.id}`}
+                          track={track}
+                          isSaved={savedIds.has(track.id)}
+                          isLiked={likedIds.has(track.id)}
+                          onPlay={() => playTrack(track)}
+                          onSave={() => toggleSaved(track)}
+                          onLike={() => toggleLiked(track)}
+                          onQueue={() => addToQueue(track)}
+                          onPlaylist={() => addTrackToPlaylist(track, activePlaylist.id)}
+                          playlistDisabled={false}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.emptyPanel}>
+                      Add songs to {activePlaylist.name} from Browse or your Library.
+                    </div>
+                  )}
+                </section>
+              ) : null}
             </>
           ) : null}
 
@@ -1004,21 +1220,31 @@ export function MusicShell() {
           <div className={styles.playerCurrent}>
             <button
               type="button"
-              className={styles.playerCoverButton}
-              onClick={() => playTrack(currentVideo, { autoplay: true, addToQueue: false })}
+              className={styles.playerNavButton}
+              onClick={playPrevious}
+              disabled={!previousQueue.length}
             >
-              <div className={styles.playerCover}>
-                <ArtworkImage
-                  src={currentVideo.thumbnailUrl}
-                  alt={currentVideo.title}
-                  sizes="72px"
-                />
-              </div>
+              Prev
             </button>
+            <div className={styles.playerMiniArt}>
+              <ArtworkImage
+                src={currentVideo.thumbnailUrl}
+                alt={currentVideo.title}
+                sizes="64px"
+              />
+            </div>
             <div className={styles.playerCopy}>
               <strong>{currentVideo.title}</strong>
               <span>{currentVideo.channelTitle}</span>
             </div>
+            <button
+              type="button"
+              className={styles.playerNavButton}
+              onClick={playNext}
+              disabled={!nextQueue.length}
+            >
+              Next
+            </button>
           </div>
 
           <div className={styles.playerMiddle}>
@@ -1030,14 +1256,6 @@ export function MusicShell() {
               >
                 Playing
               </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={playNext}
-                disabled={!queuePreview.length}
-              >
-                Next
-              </button>
             </div>
             <div className={styles.playerFrame}>
               <div id="youtube-player" className={styles.playerSlot} />
@@ -1046,21 +1264,21 @@ export function MusicShell() {
 
           <div className={styles.playerQueueArea}>
             <div className={styles.playerQueueHeader}>
-              <span>Up Next</span>
+              <span>Swipe Queue</span>
               <div className={styles.playerQueueActions}>
                 <button
                   type="button"
                   className={styles.queueArrow}
                   onClick={() => scrollQueue("left")}
                 >
-                  Prev
+                  Left
                 </button>
                 <button
                   type="button"
                   className={styles.queueArrow}
                   onClick={() => scrollQueue("right")}
                 >
-                  Next
+                  Right
                 </button>
                 <button
                   type="button"
@@ -1072,14 +1290,17 @@ export function MusicShell() {
               </div>
             </div>
             <div ref={queueScrollerRef} className={styles.playerQueueScroller}>
-              {queuePreview.length ? (
-                queuePreview.map((track) => (
+              {previousQueue.length || nextQueue.length ? (
+                [...previousQueue.map((track) => ({ track, type: "previous" as const })), ...nextQueue.map((track) => ({ track, type: "next" as const }))].map(({ track, type }) => (
                   <button
-                    key={`up-next-${track.id}`}
+                    key={`${type}-${track.id}`}
                     type="button"
                     className={styles.upNextCard}
                     onClick={() => playTrack(track, { autoplay: true, addToQueue: false })}
                   >
+                    <span className={styles.queueCardLabel}>
+                      {type === "previous" ? "Previous" : "Next"}
+                    </span>
                     <div className={styles.upNextThumb}>
                       <ArtworkImage
                         src={track.thumbnailUrl}
@@ -1095,7 +1316,7 @@ export function MusicShell() {
                 ))
               ) : (
                 <div className={styles.upNextEmpty}>
-                  Swipe here on mobile once you queue another track.
+                  Queue another track to swipe left or right through your listening order.
                 </div>
               )}
             </div>
@@ -1134,6 +1355,8 @@ type TrackRowProps = {
   onSave: () => void;
   onLike: () => void;
   onQueue: () => void;
+  onPlaylist: () => void;
+  playlistDisabled: boolean;
 };
 
 function TrackRow({
@@ -1143,7 +1366,9 @@ function TrackRow({
   onPlay,
   onSave,
   onLike,
-  onQueue
+  onQueue,
+  onPlaylist,
+  playlistDisabled
 }: TrackRowProps) {
   return (
     <article className={styles.trackRow}>
@@ -1164,6 +1389,14 @@ function TrackRow({
       <div className={styles.trackActions}>
         <button type="button" className={styles.secondaryButton} onClick={onQueue}>
           Queue
+        </button>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={onPlaylist}
+          disabled={playlistDisabled}
+        >
+          Playlist
         </button>
         <button type="button" className={styles.secondaryButton} onClick={onSave}>
           {isSaved ? "Saved" : "Save"}
