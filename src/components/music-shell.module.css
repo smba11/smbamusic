@@ -215,6 +215,13 @@
   gap: 20px;
 }
 
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .topTitle {
   margin: 4px 0 0;
   font-size: clamp(2rem, 3vw, 3rem);
@@ -294,6 +301,40 @@
   padding: 0;
   color: var(--text);
   background: transparent;
+}
+
+.profileBadge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.profileAvatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: var(--inverse-text);
+  background: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.profileCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profileCopy span {
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .hero {
@@ -661,6 +702,17 @@
   gap: 12px;
 }
 
+.profileSettings {
+  display: grid;
+  gap: 10px;
+}
+
+.settingsHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .settingRow {
   display: flex;
   align-items: center;
@@ -902,6 +954,11 @@
   .sectionHeader,
   .playerQueueHeader,
   .settingRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbarActions {
     flex-direction: column;
     align-items: stretch;
   }

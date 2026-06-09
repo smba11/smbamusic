@@ -60,6 +60,7 @@ const SAVED_TRACKS_KEY = "smbamusic-saved-tracks";
 const LIKED_TRACKS_KEY = "smbamusic-liked-tracks";
 const RECENT_TRACKS_KEY = "smbamusic-recent-tracks";
 const PLAYLISTS_KEY = "smbamusic-playlists";
+const PROFILE_NAME_KEY = "smbamusic-profile-name";
 const SETTINGS_KEY = "smbamusic-settings-v2";
 
 const browseScenes = [
@@ -148,6 +149,7 @@ export function MusicShell() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState("");
   const [queue, setQueue] = useState<VideoItem[]>([]);
   const [currentVideo, setCurrentVideo] = useState<VideoItem | null>(null);
   const [currentQueueIndex, setCurrentQueueIndex] = useState(-1);
@@ -225,6 +227,7 @@ export function MusicShell() {
       const likedValue = window.localStorage.getItem(LIKED_TRACKS_KEY);
       const recentValue = window.localStorage.getItem(RECENT_TRACKS_KEY);
       const playlistsValue = window.localStorage.getItem(PLAYLISTS_KEY);
+      const profileNameValue = window.localStorage.getItem(PROFILE_NAME_KEY);
       const settingsValue = window.localStorage.getItem(SETTINGS_KEY);
 
       if (savedValue) {
@@ -250,6 +253,10 @@ export function MusicShell() {
         }
       }
 
+      if (profileNameValue) {
+        setProfileName(profileNameValue);
+      }
+
       if (settingsValue) {
         setSettings({
           ...defaultSettings,
@@ -261,6 +268,7 @@ export function MusicShell() {
       setLikedTracks([]);
       setRecentTracks([]);
       setPlaylists([]);
+      setProfileName("");
       setSettings(defaultSettings);
     } finally {
       setIsLibraryReady(true);
@@ -298,6 +306,14 @@ export function MusicShell() {
 
     window.localStorage.setItem(PLAYLISTS_KEY, JSON.stringify(playlists));
   }, [isLibraryReady, playlists]);
+
+  useEffect(() => {
+    if (!isLibraryReady) {
+      return;
+    }
+
+    window.localStorage.setItem(PROFILE_NAME_KEY, profileName.trim());
+  }, [isLibraryReady, profileName]);
 
   useEffect(() => {
     if (!isLibraryReady) {
@@ -735,21 +751,32 @@ export function MusicShell() {
                   ? "Listen Now"
                   : activeSection === "Browse"
                     ? "Browse"
-                    : activeSection}
+                  : activeSection}
               </h2>
             </div>
 
-            <form className={styles.searchForm} onSubmit={handleSearch}>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search artists, songs, or moods"
-                className={styles.searchInput}
-              />
-              <button type="submit" className={styles.searchButton} disabled={isSearching}>
-                {isSearching ? "Searching" : "Search"}
-              </button>
-            </form>
+            <div className={styles.topbarActions}>
+              <form className={styles.searchForm} onSubmit={handleSearch}>
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search artists, songs, or moods"
+                  className={styles.searchInput}
+                />
+                <button type="submit" className={styles.searchButton} disabled={isSearching}>
+                  {isSearching ? "Searching" : "Search"}
+                </button>
+              </form>
+              <div className={styles.profileBadge}>
+                <span className={styles.profileAvatar}>
+                  {(profileName.trim()[0] ?? "S").toUpperCase()}
+                </span>
+                <div className={styles.profileCopy}>
+                  <strong>{profileName.trim() || "Listener"}</strong>
+                  <span>Local profile</span>
+                </div>
+              </div>
+            </div>
           </header>
 
           {activeSection === "Listen Now" ? (
@@ -1171,6 +1198,26 @@ export function MusicShell() {
                       </span>
                     </button>
                   ))}
+                </div>
+              </article>
+
+              <article className={styles.settingsCard}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <p className={styles.topLabel}>Profile</p>
+                    <h3>Basic info only</h3>
+                  </div>
+                </div>
+                <div className={styles.profileSettings}>
+                  <input
+                    value={profileName}
+                    onChange={(event) => setProfileName(event.target.value)}
+                    placeholder="Optional display name"
+                    className={styles.playlistInput}
+                  />
+                  <p className={styles.settingsHint}>
+                    This stays local in your browser. No auth required.
+                  </p>
                 </div>
               </article>
 
